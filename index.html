@@ -1481,22 +1481,19 @@ const KV_COLLECTION = 'kv';
   }
 
   async function toggleShiftRequest(monthInput, dateStr, type){
+    // Each (date, type) is toggled independently, so a staff member can request
+    // more than one shift on the same day (e.g. 早番+夜勤, or back-to-back 日勤+夜勤).
     const staff = staffList.find(s => s.id === selectedStaffId);
     if (!staff) return;
     const submissions = await loadMonthSubmissions(monthInput);
     if (submissions[staff.id]) return; // locked after submission
     const reqs = await loadMonthRequests(monthInput);
-    const idx = reqs.findIndex(r => r.staffId === staff.id && r.date === dateStr);
+    const idx = reqs.findIndex(r => r.staffId === staff.id && r.date === dateStr && r.type === type);
     if (idx >= 0){
-      if (reqs[idx].type === type){
-        reqs.splice(idx, 1); // tapping the same type again clears the request
-      } else {
-        reqs[idx].type = type;
-        reqs[idx].submittedAt = new Date().toISOString();
-      }
+      reqs.splice(idx, 1); // tapping an already-selected type again clears just that one
     } else {
       reqs.push({
-        id: 'req-' + Date.now(),
+        id: 'req-' + Date.now() + '-' + type,
         staffId: staff.id,
         staffName: staff.name,
         date: dateStr,
@@ -1610,7 +1607,7 @@ const KV_COLLECTION = 'kv';
 
     const locked = !!mySubmittedAt;
     $('ghReqWhoHint').textContent = currentStaff
-      ? `${currentStaff.name} さんのシフト希望です。日付ごとに希望する区分をタップしてください（土日祝は赤字・青字で表示されます）。早番は原則、土曜・日曜・祝日のみ選択できます。`
+      ? `${currentStaff.name} さんのシフト希望です。日付ごとに希望する区分をタップしてください（土日祝は赤字・青字で表示されます）。同じ日に複数の区分（連続勤務など）を選ぶこともできます。早番は原則、土曜・日曜・祝日のみ選択できます。`
       : 'スタッフを選択してください。';
 
     const submitBtn = $('ghReqSubmitAllBtn');
@@ -1630,17 +1627,17 @@ const KV_COLLECTION = 'kv';
     thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th><th>${shiftHeaderLabel('weekend','早番')}</th></tr>`;
     body.innerHTML = days.map(d => {
       const dateStr = `${y}-${pad(m)}-${pad(d)}`;
-      const existing = reqs.find(r => r.staffId === selectedStaffId && r.date === dateStr);
-      const type = existing ? existing.type : null;
+      const dayReqs = reqs.filter(r => r.staffId === selectedStaffId && r.date === dateStr);
+      const selectedTypes = new Set(dayReqs.map(r => r.type));
       const cls = calendarDayClass(dateStr);
       const earlyAllowed = isEarlyShiftAllowed(dateStr);
       const earlyDis = (dis === '' && earlyAllowed) ? '' : 'disabled';
       const earlyTitle = earlyAllowed ? '' : ' title="早番は原則、土曜・日曜・祝日のみ選択できます（管理メニューで臨時許可を追加できます）"';
       return `<tr data-date="${dateStr}" class="${cls}">
         <td>${dateWeekdayLabel(m, d, dateStr)}</td>
-        <td><button class="gh-shiftreq-btn${type==='day' ? ' selected day' : ''}" data-type="day" ${dis}>日勤</button></td>
-        <td><button class="gh-shiftreq-btn${type==='night' ? ' selected night' : ''}" data-type="night" ${dis}>夜勤</button></td>
-        <td><button class="gh-shiftreq-btn${type==='weekend' ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
+        <td><button class="gh-shiftreq-btn${selectedTypes.has('day') ? ' selected day' : ''}" data-type="day" ${dis}>日勤</button></td>
+        <td><button class="gh-shiftreq-btn${selectedTypes.has('night') ? ' selected night' : ''}" data-type="night" ${dis}>夜勤</button></td>
+        <td><button class="gh-shiftreq-btn${selectedTypes.has('weekend') ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
       </tr>`;
     }).join('');
 
