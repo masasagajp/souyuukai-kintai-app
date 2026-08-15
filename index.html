@@ -536,6 +536,16 @@
         </div>
 
         <div class="gh-admin-section">
+          <h4>早番（平日の臨時許可）</h4>
+          <p class="gh-admin-note" style="margin-bottom:8px;">シフト希望の「早番」は原則、土曜・日曜・祝日のみ選択できます。特定の平日だけ臨時的に早番の希望を出せるようにしたい場合は、その日付を追加してください。</p>
+          <div class="gh-row">
+            <input type="date" id="ghAdminEarlyExceptionDate" style="max-width:170px;" />
+            <button class="gh-btn primary small" id="ghAdminAddEarlyExceptionBtn">追加</button>
+          </div>
+          <div id="ghAdminEarlyExceptionList" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="gh-admin-section">
           <h4>管理者PINの変更</h4>
           <div class="gh-row">
             <input type="text" inputmode="numeric" maxlength="8" id="ghAdminNewPin" placeholder="新しいPIN" style="max-width:140px;" />
@@ -594,6 +604,7 @@ const KV_COLLECTION = 'kv';
     { key: 'weekend', label: '早番', start: 10, end: 15,  color: '#D97757' },
   ];
   const SHIFT_MAP = Object.fromEntries(SHIFTS.map(s => [s.key, s]));
+  const SHIFT_TIME_TOLERANCE_HOURS = 2; // how far off the shift's start time counts as "normal" before warning
   const REQUEST_TYPES = [
     { key: 'day',     label: '日勤希望',   color: '#E3A857' },
     { key: 'night',   label: '夜勤希望',   color: '#3A4A6B' },
@@ -613,6 +624,7 @@ const KV_COLLECTION = 'kv';
   let adminPin = null;
   let adminViewAll = false;
   let facilityLocation = null;
+  let earlyShiftWeekdayExceptions = new Set(); // weekday dates (yyyy-mm-dd) where 早番 is temporarily allowed
 
   const $ = (id) => document.getElementById(id);
 
@@ -802,6 +814,13 @@ const KV_COLLECTION = 'kv';
     const [hh, mm] = str.split(':').map(Number);
     return hh + (mm || 0) / 60;
   }
+  // shortest distance in hours between two times on a 24h clock (e.g. 23:00 and 01:00 are 2h apart, not 22h)
+  function hourDistance(h1, h2){
+    const a = ((h1 % 24) + 24) % 24;
+    const b = ((h2 % 24) + 24) % 24;
+    const diff = Math.abs(a - b);
+    return Math.min(diff, 24 - diff);
+  }
 
   async function loadPersistedSettings(){
     const rawShift = await storageGet('gh-shift-config', true);
@@ -828,6 +847,21 @@ const KV_COLLECTION = 'kv';
         if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') facilityLocation = loc;
       } catch(e){ /* ignore malformed config */ }
     }
+  }
+
+  async function loadEarlyShiftWeekdayExceptions(){
+    const raw = await storageGet('gh-early-shift-weekday-exceptions', true);
+    try {
+      const arr = raw ? JSON.parse(raw) : [];
+      earlyShiftWeekdayExceptions = new Set(Array.isArray(arr) ? arr : []);
+    } catch(e){ earlyShiftWeekdayExceptions = new Set(); }
+    return earlyShiftWeekdayExceptions;
+  }
+  async function saveEarlyShiftWeekdayExceptions(){
+    await storageSet('gh-early-shift-weekday-exceptions', JSON.stringify([...earlyShiftWeekdayExceptions]), true);
+  }
+  function isEarlyShiftAllowed(dateStr){
+    return isWeekendOrHoliday(dateStr) || earlyShiftWeekdayExceptions.has(dateStr);
   }
 
   async function getAdminPin(){
@@ -979,8 +1013,37 @@ const KV_COLLECTION = 'kv';
     });
   }
 
+  function renderAdminEarlyExceptionList(){
+    const list = $('ghAdminEarlyExceptionList');
+    const dates = [...earlyShiftWeekdayExceptions].sort();
+    if (dates.length === 0){
+      list.innerHTML = `<div class="gh-hint">現在、臨時許可されている平日はありません</div>`;
+      return;
+    }
+    list.innerHTML = dates.map(d => {
+      const [yy, mm, dd] = d.split('-').map(Number);
+      const label = dateWeekdayLabel(mm, dd, d);
+      return `<div class="gh-req-sub-row">
+        <span>${label}</span>
+        <button class="gh-btn ghost small gh-early-exception-del" data-date="${d}">削除</button>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.gh-early-exception-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const d = e.target.getAttribute('data-date');
+        earlyShiftWeekdayExceptions.delete(d);
+        await saveEarlyShiftWeekdayExceptions();
+        renderAdminEarlyExceptionList();
+        await renderRequests();
+      });
+    });
+  }
+
   async function populateAdminForm(){
     renderAdminStaffList();
+    await loadEarlyShiftWeekdayExceptions();
+    renderAdminEarlyExceptionList();
+    $('ghAdminEarlyExceptionDate').value = '';
     $('ghAdminDayStart').value = hoursToTimeStr(SHIFT_MAP.day.start);
     $('ghAdminDayEnd').value = hoursToTimeStr(SHIFT_MAP.day.end);
     $('ghAdminNightStart').value = hoursToTimeStr(SHIFT_MAP.night.start);
@@ -1179,6 +1242,20 @@ const KV_COLLECTION = 'kv';
   }
 
   async function handleClockIn(){
+    // sanity check: does the current time roughly match the selected shift's start time?
+    // (e.g. selecting 早番(10:00開始) but clocking in at 21:00 is almost certainly the wrong shift type)
+    const shiftForCheck = SHIFT_MAP[selectedShiftKey];
+    const nowForCheck = new Date();
+    const nowHourForCheck = nowForCheck.getHours() + nowForCheck.getMinutes() / 60;
+    const startDistance = hourDistance(nowHourForCheck, shiftForCheck.start);
+    if (startDistance > SHIFT_TIME_TOLERANCE_HOURS){
+      const proceed = window.confirm(
+        `選択されている勤務区分は「${shiftForCheck.label}」(開始 ${hoursToTimeStr(shiftForCheck.start)})ですが、` +
+        `現在時刻は ${fmtTime(nowForCheck)} で、開始予定時刻から大きくずれています。\n` +
+        `勤務区分の選択に間違いがないか確認してください。このまま出勤として記録しますか？`
+      );
+      if (!proceed) return;
+    }
     await withOpenRecord(async (staff, open, loc) => {
       if (open){
         showClockMessage(`整合性エラー：${staff.name} さんは既に「${SHIFT_MAP[open.shiftType].label}」で ${open.clockIn} から出勤中です。先に退勤してください。`);
@@ -1468,6 +1545,7 @@ const KV_COLLECTION = 'kv';
     if (!monthInput) return;
     const reqs = await loadMonthRequests(monthInput);
     const submissions = await loadMonthSubmissions(monthInput);
+    await loadEarlyShiftWeekdayExceptions();
     const viewingAll = adminUnlocked && adminViewAll;
     const windowOpen = isSubmitWindowOpen();
     const body = $('ghReqBody');
@@ -1532,7 +1610,7 @@ const KV_COLLECTION = 'kv';
 
     const locked = !!mySubmittedAt;
     $('ghReqWhoHint').textContent = currentStaff
-      ? `${currentStaff.name} さんのシフト希望です。日付ごとに希望する区分をタップしてください（土日祝は赤字・青字で表示されます）。`
+      ? `${currentStaff.name} さんのシフト希望です。日付ごとに希望する区分をタップしてください（土日祝は赤字・青字で表示されます）。早番は原則、土曜・日曜・祝日のみ選択できます。`
       : 'スタッフを選択してください。';
 
     const submitBtn = $('ghReqSubmitAllBtn');
@@ -1555,11 +1633,14 @@ const KV_COLLECTION = 'kv';
       const existing = reqs.find(r => r.staffId === selectedStaffId && r.date === dateStr);
       const type = existing ? existing.type : null;
       const cls = calendarDayClass(dateStr);
+      const earlyAllowed = isEarlyShiftAllowed(dateStr);
+      const earlyDis = (dis === '' && earlyAllowed) ? '' : 'disabled';
+      const earlyTitle = earlyAllowed ? '' : ' title="早番は原則、土曜・日曜・祝日のみ選択できます（管理メニューで臨時許可を追加できます）"';
       return `<tr data-date="${dateStr}" class="${cls}">
         <td>${dateWeekdayLabel(m, d, dateStr)}</td>
         <td><button class="gh-shiftreq-btn${type==='day' ? ' selected day' : ''}" data-type="day" ${dis}>日勤</button></td>
         <td><button class="gh-shiftreq-btn${type==='night' ? ' selected night' : ''}" data-type="night" ${dis}>夜勤</button></td>
-        <td><button class="gh-shiftreq-btn${type==='weekend' ? ' selected weekend' : ''}" data-type="weekend" ${dis}>早番</button></td>
+        <td><button class="gh-shiftreq-btn${type==='weekend' ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
       </tr>`;
     }).join('');
 
@@ -1569,6 +1650,7 @@ const KV_COLLECTION = 'kv';
         const tr = btn.closest('tr');
         const dateStr = tr.getAttribute('data-date');
         const type = btn.getAttribute('data-type');
+        if (type === 'weekend' && !isEarlyShiftAllowed(dateStr)) return;
         await toggleShiftRequest(monthInput, dateStr, type);
         await renderRequests();
       });
@@ -1960,6 +2042,16 @@ const KV_COLLECTION = 'kv';
       SUBMIT_WINDOW_END = end;
       await storageSet('gh-submit-window', JSON.stringify({ start, end }), true);
       updateReqStatus();
+      await renderRequests();
+    });
+
+    $('ghAdminAddEarlyExceptionBtn').addEventListener('click', async () => {
+      const val = $('ghAdminEarlyExceptionDate').value; // yyyy-mm-dd
+      if (!val) return;
+      earlyShiftWeekdayExceptions.add(val);
+      await saveEarlyShiftWeekdayExceptions();
+      $('ghAdminEarlyExceptionDate').value = '';
+      renderAdminEarlyExceptionList();
       await renderRequests();
     });
 
