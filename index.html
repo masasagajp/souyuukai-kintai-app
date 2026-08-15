@@ -1645,8 +1645,15 @@ const KV_COLLECTION = 'kv';
       const selectedTypes = new Set(dayReqs.map(r => r.type));
       const cls = calendarDayClass(dateStr);
       const earlyAllowed = isEarlyShiftAllowed(dateStr);
-      const earlyDis = (dis === '' && earlyAllowed) ? '' : 'disabled';
-      const earlyTitle = earlyAllowed ? '' : ' title="早番は原則、土曜・日曜・祝日のみ選択できます（管理メニューで臨時許可を追加できます）"';
+      const earlySelected = selectedTypes.has('weekend');
+      // Keep the button tappable if it's already selected (even on a day that no longer
+      // allows early-shift requests) so a stale/legacy selection can still be removed.
+      const earlyDis = (dis === '' && (earlyAllowed || earlySelected)) ? '' : 'disabled';
+      const earlyTitle = earlyAllowed
+        ? ''
+        : (earlySelected
+          ? ' title="この早番希望は現在許可されていない日に登録されています。タップすると取り消せます。"'
+          : ' title="早番は原則、土曜・日曜・祝日のみ選択できます（管理メニューで臨時許可を追加できます）"');
       return `<tr data-date="${dateStr}" class="${cls}">
         <td>${dateWeekdayLabel(m, d, dateStr)}</td>
         <td><button class="gh-shiftreq-btn${selectedTypes.has('weekend') ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
@@ -1661,7 +1668,9 @@ const KV_COLLECTION = 'kv';
         const tr = btn.closest('tr');
         const dateStr = tr.getAttribute('data-date');
         const type = btn.getAttribute('data-type');
-        if (type === 'weekend' && !isEarlyShiftAllowed(dateStr)) return;
+        // Block adding a NEW early-shift request on a disallowed day, but still allow
+        // removing one that's already selected (e.g. legacy data from before the rule).
+        if (type === 'weekend' && !isEarlyShiftAllowed(dateStr) && !btn.classList.contains('selected')) return;
         await toggleShiftRequest(monthInput, dateStr, type);
         await renderRequests();
       });
