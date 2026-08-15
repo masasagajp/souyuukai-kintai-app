@@ -400,14 +400,9 @@
           </table>
         </div>
 
-        <div class="gh-row" id="ghReqSubmitRow" style="margin-top:16px; display:none;">
+        <div class="gh-row" id="ghReqSubmitRow" style="margin-top:16px;">
           <button class="gh-btn primary" id="ghReqSubmitAllBtn">提出する</button>
           <span class="gh-hint" id="ghReqSubmitStatusHint"></span>
-        </div>
-
-        <div id="ghReqSubmissionAdminWrap" style="margin-top:18px; display:none;">
-          <div class="gh-panel-title" style="font-size:13px;">提出状況（管理者ビュー）</div>
-          <div id="ghReqSubmissionAdminList"></div>
         </div>
       </div>
     </div>
@@ -579,11 +574,44 @@
         </div>
 
         <div class="gh-admin-section">
-          <h4>閲覧範囲</h4>
-          <label class="gh-admin-checkline" style="font-size:13px; color:var(--ink);">
-            <input type="checkbox" id="ghAdminViewAllToggle" /> 全スタッフの打刻履歴・シフト希望・サマリーを表示する
-          </label>
-          <p class="gh-admin-note">オフの場合、通常画面では自分（選択中のスタッフ）の記録のみが表示されます。管理メニューを閉じてもこの設定は次にロックするまで維持されます。</p>
+          <div class="gh-footer-row" style="margin-bottom:10px;">
+            <h4 style="margin:0;">シフト希望の状況（全スタッフ）</h4>
+            <input type="month" id="ghAdminReqMonth" style="max-width:170px;" />
+          </div>
+          <div id="ghAdminReqSubList" style="margin-bottom:12px;"></div>
+          <div class="gh-table-wrap">
+            <table class="gh-table" id="ghAdminReqTable">
+              <thead id="ghAdminReqThead">
+                <tr><th>日付</th><th>早番希望</th><th>日勤希望</th><th>夜勤希望</th></tr>
+              </thead>
+              <tbody id="ghAdminReqBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
+          <div class="gh-footer-row" style="margin-bottom:10px;">
+            <h4 style="margin:0;">シフト表の修正（全スタッフ）</h4>
+            <input type="month" id="ghAdminScheduleEditMonth" style="max-width:170px;" />
+          </div>
+          <p class="gh-admin-note" style="margin-bottom:8px;">各セルに担当者名を入力してください。複数人いる場合は「、」で区切ります。空にすると「募集枠」として表示されます。変更内容は入力欄からフォーカスが外れた時点で自動保存されます。</p>
+          <div class="gh-table-wrap">
+            <table class="gh-table" id="ghAdminScheduleEditTable">
+              <thead id="ghAdminScheduleEditThead">
+                <tr><th>日付</th><th>早番</th><th>日勤</th><th>夜勤</th></tr>
+              </thead>
+              <tbody id="ghAdminScheduleEditBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
+          <div class="gh-footer-row" style="margin-bottom:10px;">
+            <h4 style="margin:0;">全スタッフのサマリー</h4>
+            <input type="month" id="ghAdminSummaryMonth" style="max-width:170px;" />
+          </div>
+          <div class="gh-summary-grid" id="ghAdminSummaryGrid"></div>
+          <button class="gh-btn ghost small" id="ghAdminExportAllBtn" style="margin-top:10px;">全スタッフの勤怠をCSVで書き出す</button>
         </div>
 
         <div class="gh-admin-section" style="margin-bottom:0;">
@@ -635,7 +663,6 @@ const KV_COLLECTION = 'kv';
   let recordsCache = {}; // monthKey -> array
   let adminUnlocked = false;
   let adminPin = null;
-  let adminViewAll = false;
   let facilityLocation = null;
   let earlyShiftWeekdayExceptions = new Set(); // weekday dates (yyyy-mm-dd) where 早番 is temporarily allowed
 
@@ -994,8 +1021,8 @@ const KV_COLLECTION = 'kv';
         <td>${dateWeekdayLabel(mm, dd, r.date)}</td>
         <td>${r.staffName}</td>
         <td><span class="gh-tag" style="background:${shift.color}22; color:${shift.color};">${shift.label}</span></td>
-        <td>${r.clockIn}</td>
-        <td>${r.clockOut || '<span style="color:var(--ink-soft)">勤務中</span>'}</td>
+        <td><input type="time" class="gh-admin-log-time" data-time-id="${r.id}" data-field="clockIn" value="${r.clockIn||''}" style="max-width:110px;"/></td>
+        <td><input type="time" class="gh-admin-log-time" data-time-id="${r.id}" data-field="clockOut" value="${r.clockOut||''}" style="max-width:110px;"/></td>
         <td><input class="gh-note-input" value="${(r.note||'').replace(/"/g,'&quot;')}" data-note-id="${r.id}" placeholder="メモ"/></td>
         <td><button class="gh-btn ghost small gh-admin-log-del" data-del-id="${r.id}">削除</button></td>
       </tr>`;
@@ -1010,6 +1037,27 @@ const KV_COLLECTION = 'kv';
           rec.note = e.target.value;
           await saveMonthRecords(monthInput);
           await renderLog();
+        }
+      });
+    });
+    body.querySelectorAll('.gh-admin-log-time').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-time-id');
+        const field = e.target.getAttribute('data-field');
+        const arr = recordsCache[monthInput] || [];
+        const rec = arr.find(r => r.id === id);
+        if (rec){
+          // Clearing the 退勤(clock-out) time puts the record back into "working" state;
+          // 出勤(clock-in) is required, so an empty value there is ignored.
+          if (field === 'clockOut'){
+            rec.clockOut = e.target.value || null;
+          } else if (e.target.value) {
+            rec.clockIn = e.target.value;
+          }
+          await saveMonthRecords(monthInput);
+          await renderLog();
+          await renderSummary();
+          await refreshStatus();
         }
       });
     });
@@ -1067,13 +1115,18 @@ const KV_COLLECTION = 'kv';
     $('ghAdminWindowStart').value = SUBMIT_WINDOW_START;
     $('ghAdminWindowEnd').value = SUBMIT_WINDOW_END;
     $('ghAdminNewPin').value = '';
-    $('ghAdminViewAllToggle').checked = adminViewAll;
     $('ghAdminLocationAddress').value = facilityLocation && facilityLocation.address ? facilityLocation.address : '';
     updateAdminLocationDisplay();
     $('ghAdminLocationError').style.display = 'none';
     if (!$('ghAdminLogMonth').value) $('ghAdminLogMonth').value = monthKey(new Date());
     if (!$('ghAdminAutoGenMonth').value) $('ghAdminAutoGenMonth').value = monthKey(new Date());
+    if (!$('ghAdminReqMonth').value) $('ghAdminReqMonth').value = monthKey(new Date());
+    if (!$('ghAdminScheduleEditMonth').value) $('ghAdminScheduleEditMonth').value = monthKey(new Date());
+    if (!$('ghAdminSummaryMonth').value) $('ghAdminSummaryMonth').value = monthKey(new Date());
     await renderAdminLogEditor();
+    await renderAdminReqOverview();
+    await renderAdminScheduleEditor();
+    await renderAdminSummary();
   }
 
   // ---------------- Shift type select ----------------
@@ -1382,15 +1435,12 @@ const KV_COLLECTION = 'kv';
   async function renderLog(){
     const monthInput = $('ghLogMonth').value; // yyyy-mm
     const recs = await loadMonthRecords(monthInput);
-    const viewingAll = adminUnlocked && adminViewAll;
-    const scoped = viewingAll ? recs : recs.filter(r => r.staffId === selectedStaffId);
+    const scoped = recs.filter(r => r.staffId === selectedStaffId);
     const sorted = [...scoped].sort((a,b) => (a.date+a.clockIn).localeCompare(b.date+b.clockIn)).reverse();
     const body = $('ghLogBody');
 
     const currentStaff = staffList.find(s => s.id === selectedStaffId);
-    $('ghLogWhoHint').textContent = viewingAll
-      ? '管理者ビュー：全スタッフの打刻履歴を表示中です。'
-      : (currentStaff ? `${currentStaff.name} さんの打刻履歴です。` : 'スタッフを選択してください。');
+    $('ghLogWhoHint').textContent = currentStaff ? `${currentStaff.name} さんの打刻履歴です。` : 'スタッフを選択してください。';
 
     if (sorted.length === 0){
       body.innerHTML = `<tr><td colspan="9" class="gh-empty">この月の打刻記録はまだありません</td></tr>`;
@@ -1422,7 +1472,6 @@ const KV_COLLECTION = 'kv';
     const monthInput = $('ghSummaryMonth').value;
     const recs = await loadMonthRecords(monthInput);
     const grid = $('ghSummaryGrid');
-    const viewingAll = adminUnlocked && adminViewAll;
 
     if (staffList.length === 0){
       grid.innerHTML = `<div class="gh-empty">スタッフが登録されていません</div>`;
@@ -1430,37 +1479,50 @@ const KV_COLLECTION = 'kv';
       return;
     }
 
-    const targets = viewingAll ? staffList : staffList.filter(s => s.id === selectedStaffId);
+    const targets = staffList.filter(s => s.id === selectedStaffId);
     const currentStaff = staffList.find(s => s.id === selectedStaffId);
-    $('ghSummaryWhoHint').textContent = viewingAll
-      ? '管理者ビュー：全スタッフのサマリーを表示中です。'
-      : (currentStaff ? `${currentStaff.name} さんのサマリーです。` : 'スタッフを選択してください。');
+    $('ghSummaryWhoHint').textContent = currentStaff ? `${currentStaff.name} さんのサマリーです。` : 'スタッフを選択してください。';
 
     if (targets.length === 0){
       grid.innerHTML = `<div class="gh-empty">スタッフを選択してください</div>`;
       return;
     }
 
-    grid.innerHTML = targets.map(staff => {
-      const own = recs.filter(r => r.staffId === staff.id);
-      let totalHrs = 0;
-      const shiftCounts = {};
-      own.forEach(r => {
-        const h = netWorkedHours(r);
-        if (h !== null) totalHrs += h;
-        shiftCounts[r.shiftType] = (shiftCounts[r.shiftType]||0) + 1;
-      });
-      const chips = Object.entries(shiftCounts).map(([k,v]) => `<span class="gh-chip">${SHIFT_MAP[k].label} ×${v}</span>`).join('');
-      return `<div class="gh-summary-card">
-        <div class="gh-summary-name">
-          <span class="gh-avatar" style="width:22px;height:22px;font-size:10px;background:${colorForStaff(staff.id)}">${initials(staff.name)}</span>
-          ${staff.name}
-        </div>
-        <div class="gh-summary-hours gh-display">${totalHrs.toFixed(1)}<span style="font-size:13px; font-weight:400; color:var(--ink-soft);"> 時間</span></div>
-        <div class="gh-summary-sub">勤務日数：${own.length}日</div>
-        <div class="gh-summary-shifts">${chips || '<span class="gh-chip">記録なし</span>'}</div>
-      </div>`;
-    }).join('');
+    grid.innerHTML = targets.map(staff => buildSummaryCardHtml(staff, recs)).join('');
+  }
+
+  function buildSummaryCardHtml(staff, recs){
+    const own = recs.filter(r => r.staffId === staff.id);
+    let totalHrs = 0;
+    const shiftCounts = {};
+    own.forEach(r => {
+      const h = netWorkedHours(r);
+      if (h !== null) totalHrs += h;
+      shiftCounts[r.shiftType] = (shiftCounts[r.shiftType]||0) + 1;
+    });
+    const chips = Object.entries(shiftCounts).map(([k,v]) => `<span class="gh-chip">${SHIFT_MAP[k].label} ×${v}</span>`).join('');
+    return `<div class="gh-summary-card">
+      <div class="gh-summary-name">
+        <span class="gh-avatar" style="width:22px;height:22px;font-size:10px;background:${colorForStaff(staff.id)}">${initials(staff.name)}</span>
+        ${staff.name}
+      </div>
+      <div class="gh-summary-hours gh-display">${totalHrs.toFixed(1)}<span style="font-size:13px; font-weight:400; color:var(--ink-soft);"> 時間</span></div>
+      <div class="gh-summary-sub">勤務日数：${own.length}日</div>
+      <div class="gh-summary-shifts">${chips || '<span class="gh-chip">記録なし</span>'}</div>
+    </div>`;
+  }
+
+  // ---------------- Admin: summary (all staff) ----------------
+  async function renderAdminSummary(){
+    const monthInput = $('ghAdminSummaryMonth').value;
+    if (!monthInput) return;
+    const recs = await loadMonthRecords(monthInput);
+    const grid = $('ghAdminSummaryGrid');
+    if (staffList.length === 0){
+      grid.innerHTML = `<div class="gh-empty">スタッフが登録されていません</div>`;
+      return;
+    }
+    grid.innerHTML = staffList.map(staff => buildSummaryCardHtml(staff, recs)).join('');
   }
 
   function isSubmitWindowOpen(d = new Date()){
@@ -1539,6 +1601,59 @@ const KV_COLLECTION = 'kv';
     submissionsCache[monthInput] = submissions;
     await saveMonthSubmissions(monthInput);
     await renderRequests();
+    await renderAdminReqOverview();
+  }
+
+  // ---------------- Admin: shift request overview (all staff) ----------------
+  async function renderAdminReqOverview(){
+    const monthInput = $('ghAdminReqMonth').value;
+    if (!monthInput) return;
+    const reqs = await loadMonthRequests(monthInput);
+    const submissions = await loadMonthSubmissions(monthInput);
+    const subList = $('ghAdminReqSubList');
+    if (staffList.length === 0){
+      subList.innerHTML = `<div class="gh-hint">スタッフが登録されていません</div>`;
+    } else {
+      subList.innerHTML = staffList.map(s => {
+        const sub = submissions[s.id];
+        const tag = sub
+          ? `<span class="gh-req-sub-tag submitted">提出済み（${fmtSubmittedAt(sub)}）</span>`
+          : `<span class="gh-req-sub-tag pending">未提出</span>`;
+        const resetBtn = sub
+          ? `<button class="gh-btn ghost small gh-admin-req-reset-btn" data-staff-id="${s.id}">提出を取り消す</button>`
+          : '';
+        return `<div class="gh-req-sub-row">
+          <span>${s.name}</span>
+          <span style="display:flex; align-items:center; gap:8px;">${tag}${resetBtn}</span>
+        </div>`;
+      }).join('');
+      subList.querySelectorAll('.gh-admin-req-reset-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const staffId = e.target.getAttribute('data-staff-id');
+          await adminResetSubmission(monthInput, staffId);
+        });
+      });
+    }
+
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+    const thead = $('ghAdminReqThead');
+    const body = $('ghAdminReqBody');
+    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番希望')}</th><th>${shiftHeaderLabel('day','日勤希望')}</th><th>${shiftHeaderLabel('night','夜勤希望')}</th></tr>`;
+    body.innerHTML = days.map(d => {
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      const dayNames = reqs.filter(r => r.date === dateStr && r.type === 'day').map(r => r.staffName);
+      const nightNames = reqs.filter(r => r.date === dateStr && r.type === 'night').map(r => r.staffName);
+      const earlyNames = reqs.filter(r => r.date === dateStr && r.type === 'weekend').map(r => r.staffName);
+      const cls = calendarDayClass(dateStr);
+      return `<tr class="${cls}">
+        <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+        <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+      </tr>`;
+    }).join('');
   }
 
   function shiftHeaderLabel(key, label){
@@ -1557,7 +1672,6 @@ const KV_COLLECTION = 'kv';
     const reqs = await loadMonthRequests(monthInput);
     const submissions = await loadMonthSubmissions(monthInput);
     await loadEarlyShiftWeekdayExceptions();
-    const viewingAll = adminUnlocked && adminViewAll;
     const windowOpen = isSubmitWindowOpen();
     const body = $('ghReqBody');
     const thead = $('ghReqThead');
@@ -1568,56 +1682,6 @@ const KV_COLLECTION = 'kv';
     const [y, m] = monthInput.split('-').map(Number);
     const numDays = daysInMonth(monthInput);
     const days = Array.from({length: numDays}, (_, i) => i + 1);
-
-    if (viewingAll){
-      $('ghReqWhoHint').textContent = '管理者ビュー：全スタッフの希望状況を表示中です。';
-      $('ghReqSubmitRow').style.display = 'none';
-      $('ghReqSubmissionAdminWrap').style.display = '';
-
-      const subList = $('ghReqSubmissionAdminList');
-      if (staffList.length === 0){
-        subList.innerHTML = `<div class="gh-hint">スタッフが登録されていません</div>`;
-      } else {
-        subList.innerHTML = staffList.map(s => {
-          const sub = submissions[s.id];
-          const tag = sub
-            ? `<span class="gh-req-sub-tag submitted">提出済み（${fmtSubmittedAt(sub)}）</span>`
-            : `<span class="gh-req-sub-tag pending">未提出</span>`;
-          const resetBtn = sub
-            ? `<button class="gh-btn ghost small gh-req-reset-btn" data-staff-id="${s.id}">提出を取り消す</button>`
-            : '';
-          return `<div class="gh-req-sub-row">
-            <span>${s.name}</span>
-            <span style="display:flex; align-items:center; gap:8px;">${tag}${resetBtn}</span>
-          </div>`;
-        }).join('');
-        subList.querySelectorAll('.gh-req-reset-btn').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const staffId = e.target.getAttribute('data-staff-id');
-            await adminResetSubmission(monthInput, staffId);
-          });
-        });
-      }
-
-      thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番希望')}</th><th>${shiftHeaderLabel('day','日勤希望')}</th><th>${shiftHeaderLabel('night','夜勤希望')}</th></tr>`;
-      body.innerHTML = days.map(d => {
-        const dateStr = `${y}-${pad(m)}-${pad(d)}`;
-        const dayNames = reqs.filter(r => r.date === dateStr && r.type === 'day').map(r => r.staffName);
-        const nightNames = reqs.filter(r => r.date === dateStr && r.type === 'night').map(r => r.staffName);
-        const earlyNames = reqs.filter(r => r.date === dateStr && r.type === 'weekend').map(r => r.staffName);
-        const cls = calendarDayClass(dateStr);
-        return `<tr class="${cls}">
-          <td>${dateWeekdayLabel(m, d, dateStr)}</td>
-          <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-          <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-          <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-        </tr>`;
-      }).join('');
-      return;
-    }
-
-    $('ghReqSubmissionAdminWrap').style.display = 'none';
-    $('ghReqSubmitRow').style.display = '';
 
     const locked = !!mySubmittedAt;
     $('ghReqWhoHint').textContent = currentStaff
@@ -1803,6 +1867,53 @@ const KV_COLLECTION = 'kv';
     return { filledCount, recruitCount, conflictCount, recruitDetails, conflictDetails };
   }
 
+  // Replace the assignment(s) for a single (date, shiftType) slot with the names typed
+  // into the admin editor (split on 、/・/,), so admins can directly correct a shift
+  // (fill a 募集枠, resolve a ⚠要調整 conflict, or just fix a mistaken assignment).
+  async function updateScheduleSlot(monthInput, dateStr, type, rawValue){
+    const plan = await loadMonthSchedulePlan(monthInput);
+    const rest = plan.filter(p => !(p.date === dateStr && p.shiftType === type));
+    const names = String(rawValue || '').split(/[、・,]/).map(s => s.trim()).filter(Boolean);
+    names.forEach(name => rest.push({ date: dateStr, shiftType: type, staffName: name }));
+    schedulePlanCache[monthInput] = rest;
+    await storageSet(`gh-schedule-plan-${monthInput}`, JSON.stringify(rest), true);
+  }
+
+  // ---------------- Admin: schedule editor (all staff, manual corrections) ----------------
+  async function renderAdminScheduleEditor(){
+    const monthInput = $('ghAdminScheduleEditMonth').value;
+    if (!monthInput) return;
+    const plan = await loadMonthSchedulePlan(monthInput);
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+    const thead = $('ghAdminScheduleEditThead');
+    const body = $('ghAdminScheduleEditBody');
+
+    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番')}</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th></tr>`;
+    body.innerHTML = days.map(d => {
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      const namesFor = (type) => [...new Set(plan.filter(p => p.date === dateStr && p.shiftType === type).map(p => p.staffName))].join('、');
+      const cls = calendarDayClass(dateStr);
+      return `<tr data-date="${dateStr}" class="${cls}">
+        <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+        <td><input type="text" class="gh-note-input" data-type="weekend" value="${namesFor('weekend').replace(/"/g,'&quot;')}" placeholder="未定"/></td>
+        <td><input type="text" class="gh-note-input" data-type="day" value="${namesFor('day').replace(/"/g,'&quot;')}" placeholder="未定"/></td>
+        <td><input type="text" class="gh-note-input" data-type="night" value="${namesFor('night').replace(/"/g,'&quot;')}" placeholder="未定"/></td>
+      </tr>`;
+    }).join('');
+
+    body.querySelectorAll('input[data-type]').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const tr = e.target.closest('tr');
+        const dateStr = tr.getAttribute('data-date');
+        const type = e.target.getAttribute('data-type');
+        await updateScheduleSlot(monthInput, dateStr, type, e.target.value);
+        if ($('ghScheduleMonth').value === monthInput) await renderSchedule();
+      });
+    });
+  }
+
   function formatScheduleName(name){
     if (name === '募集枠') return `<span style="color:#B45309; font-weight:600;">募集枠</span>`;
     if (typeof name === 'string' && name.startsWith('⚠')) return `<span style="color:#B91C1C; font-weight:600;">${name}</span>`;
@@ -1854,11 +1965,10 @@ const KV_COLLECTION = 'kv';
     return `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`;
   }
 
-  function exportCSV(){
-    const monthInput = $('ghSummaryMonth').value;
+  function exportCSV(monthInputArg, allStaff){
+    const monthInput = monthInputArg || $('ghSummaryMonth').value;
     const all = recordsCache[monthInput] || [];
-    const viewingAll = adminUnlocked && adminViewAll;
-    const recs = viewingAll ? all : all.filter(r => r.staffId === selectedStaffId);
+    const recs = allStaff ? all : all.filter(r => r.staffId === selectedStaffId);
     const rows = [['日付','氏名','区分','出勤','退勤','休憩(分)','実働時間','出勤位置','退勤位置','メモ']];
     recs.forEach(r => {
       const h = netWorkedHours(r);
@@ -2087,7 +2197,6 @@ const KV_COLLECTION = 'kv';
 
     $('ghAdminLockBtn').addEventListener('click', async () => {
       adminUnlocked = false;
-      adminViewAll = false;
       showAdminPinScreen();
       await renderLog();
       await renderRequests();
@@ -2169,11 +2278,14 @@ const KV_COLLECTION = 'kv';
       $('ghAdminNewPin').value = '';
     });
 
-    $('ghAdminViewAllToggle').addEventListener('change', async (e) => {
-      adminViewAll = e.target.checked;
-      await renderLog();
-      await renderRequests();
-      await renderSummary();
+    $('ghAdminReqMonth').addEventListener('change', renderAdminReqOverview);
+    $('ghAdminScheduleEditMonth').addEventListener('change', renderAdminScheduleEditor);
+    $('ghAdminSummaryMonth').addEventListener('change', renderAdminSummary);
+    $('ghAdminExportAllBtn').addEventListener('click', async () => {
+      const monthInput = $('ghAdminSummaryMonth').value;
+      if (!monthInput) return;
+      await loadMonthRecords(monthInput);
+      exportCSV(monthInput, true);
     });
 
     $('ghAdminSetLocationBtn').addEventListener('click', async () => {
