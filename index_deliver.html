@@ -614,6 +614,27 @@
           <button class="gh-btn ghost small" id="ghAdminExportAllBtn" style="margin-top:10px;">全スタッフの勤怠をCSVで書き出す</button>
         </div>
 
+        <div class="gh-admin-section">
+          <div class="gh-footer-row" style="margin-bottom:10px;">
+            <h4 style="margin:0;">勤務実績表</h4>
+            <input type="month" id="ghAdminReportMonth" style="max-width:170px;" />
+          </div>
+          <p class="gh-admin-note" style="margin-bottom:8px;">スタッフを選んで、その月の打刻記録から日ごとの勤務実績表を作成します。記録のない日は「—」になります。</p>
+          <div class="gh-row" style="margin-bottom:10px;">
+            <select id="ghAdminReportStaffSelect" style="min-width:160px;"></select>
+          </div>
+          <div class="gh-hint" id="ghAdminReportSummaryHint" style="margin-bottom:8px;"></div>
+          <div class="gh-table-wrap">
+            <table class="gh-table" id="ghAdminReportTable">
+              <thead>
+                <tr><th>日付</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩(分)</th><th>実働時間</th></tr>
+              </thead>
+              <tbody id="ghAdminReportBody"></tbody>
+            </table>
+          </div>
+          <button class="gh-btn ghost small" id="ghAdminReportExportBtn" style="margin-top:10px;">この勤務実績表をCSVで書き出す</button>
+        </div>
+
         <div class="gh-admin-section" style="margin-bottom:0;">
           <button class="gh-btn ghost small" id="ghAdminLockBtn">管理メニューをロックする</button>
         </div>
@@ -924,6 +945,7 @@ const KV_COLLECTION = 'kv';
   }
 
   function renderAdminStaffList(){
+    renderAdminReportStaffOptions();
     const list = $('ghAdminStaffList');
     if (staffList.length === 0){
       list.innerHTML = `<div class="gh-hint">スタッフが登録されていません</div>`;
@@ -1123,10 +1145,13 @@ const KV_COLLECTION = 'kv';
     if (!$('ghAdminReqMonth').value) $('ghAdminReqMonth').value = monthKey(new Date());
     if (!$('ghAdminScheduleEditMonth').value) $('ghAdminScheduleEditMonth').value = monthKey(new Date());
     if (!$('ghAdminSummaryMonth').value) $('ghAdminSummaryMonth').value = monthKey(new Date());
+    if (!$('ghAdminReportMonth').value) $('ghAdminReportMonth').value = monthKey(new Date());
+    renderAdminReportStaffOptions();
     await renderAdminLogEditor();
     await renderAdminReqOverview();
     await renderAdminScheduleEditor();
     await renderAdminSummary();
+    await renderAdminReport();
   }
 
   // ---------------- Shift type select ----------------
@@ -1523,6 +1548,118 @@ const KV_COLLECTION = 'kv';
       return;
     }
     grid.innerHTML = staffList.map(staff => buildSummaryCardHtml(staff, recs)).join('');
+  }
+
+  // ---------------- Admin: per-staff attendance report (勤務実績表) ----------------
+  function renderAdminReportStaffOptions(){
+    const sel = $('ghAdminReportStaffSelect');
+    const prev = sel.value;
+    if (staffList.length === 0){
+      sel.innerHTML = `<option value="">スタッフが登録されていません</option>`;
+      return;
+    }
+    sel.innerHTML = staffList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    if (prev && staffList.some(s => s.id === prev)) sel.value = prev;
+  }
+
+  // Builds the per-day rows (date, shift, clock-in/out, break, worked hours) for one
+  // staff member across every day of the month, including days with no punches at all,
+  // so the table reads as a complete monthly attendance ledger (勤務実績表).
+  async function buildAttendanceReportRows(monthInput, staffId){
+    const recs = await loadMonthRecords(monthInput);
+    const own = recs.filter(r => r.staffId === staffId);
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+
+    let totalHrs = 0, workDays = 0;
+    const shiftCounts = {};
+    const rows = [];
+
+    days.forEach(d => {
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      const dayRecs = own.filter(r => r.date === dateStr).sort((a,b) => a.clockIn.localeCompare(b.clockIn));
+      if (dayRecs.length === 0){
+        rows.push({ dateStr, label: dateWeekdayLabel(m, d, dateStr), entries: [] });
+        return;
+      }
+      workDays++;
+      const entries = dayRecs.map(r => {
+        const net = netWorkedHours(r);
+        const breakMin = Math.round(breakHoursTotal(r) * 60);
+        if (net !== null) totalHrs += net;
+        shiftCounts[r.shiftType] = (shiftCounts[r.shiftType]||0) + 1;
+        return { shiftType: r.shiftType, clockIn: r.clockIn, clockOut: r.clockOut, breakMin, net };
+      });
+      rows.push({ dateStr, label: dateWeekdayLabel(m, d, dateStr), entries });
+    });
+
+    return { rows, totalHrs, workDays, shiftCounts };
+  }
+
+  async function renderAdminReport(){
+    const monthInput = $('ghAdminReportMonth').value;
+    const staffId = $('ghAdminReportStaffSelect').value;
+    const body = $('ghAdminReportBody');
+    const hint = $('ghAdminReportSummaryHint');
+    if (!monthInput || !staffId){
+      body.innerHTML = `<tr><td colspan="6" class="gh-empty">対象月とスタッフを選択してください</td></tr>`;
+      hint.textContent = '';
+      return;
+    }
+    const staff = staffList.find(s => s.id === staffId);
+    const { rows, totalHrs, workDays, shiftCounts } = await buildAttendanceReportRows(monthInput, staffId);
+
+    body.innerHTML = rows.map(row => {
+      const cls = calendarDayClass(row.dateStr);
+      if (row.entries.length === 0){
+        return `<tr class="${cls}">
+          <td>${row.label}</td>
+          <td colspan="5" style="color:var(--ink-soft);">—</td>
+        </tr>`;
+      }
+      return row.entries.map((e, idx) => {
+        const shift = SHIFT_MAP[e.shiftType];
+        return `<tr class="${cls}">
+          <td>${idx === 0 ? row.label : ''}</td>
+          <td><span class="gh-tag" style="background:${shift.color}22; color:${shift.color};">${shift.label}</span></td>
+          <td>${e.clockIn}</td>
+          <td>${e.clockOut || '<span style="color:var(--ink-soft)">勤務中</span>'}</td>
+          <td>${e.breakMin > 0 ? e.breakMin+'分' : '—'}</td>
+          <td>${e.net !== null ? e.net.toFixed(1)+'h' : '—'}</td>
+        </tr>`;
+      }).join('');
+    }).join('');
+
+    const chips = Object.entries(shiftCounts).map(([k,v]) => `${SHIFT_MAP[k].label}×${v}`).join('、');
+    hint.textContent = staff
+      ? `${staff.name} さん（${monthInput}）：勤務日数 ${workDays}日／合計実働時間 ${totalHrs.toFixed(1)}h${chips ? '（'+chips+'）' : ''}`
+      : '';
+  }
+
+  async function exportAttendanceReportCSV(){
+    const monthInput = $('ghAdminReportMonth').value;
+    const staffId = $('ghAdminReportStaffSelect').value;
+    if (!monthInput || !staffId) return;
+    const staff = staffList.find(s => s.id === staffId);
+    const { rows } = await buildAttendanceReportRows(monthInput, staffId);
+    const csvRows = [['日付','区分','出勤','退勤','休憩(分)','実働時間']];
+    rows.forEach(row => {
+      if (row.entries.length === 0){
+        csvRows.push([row.dateStr, '', '', '', '', '']);
+      } else {
+        row.entries.forEach(e => {
+          csvRows.push([row.dateStr, SHIFT_MAP[e.shiftType].label, e.clockIn, e.clockOut||'', e.breakMin, e.net!==null?e.net.toFixed(1):'']);
+        });
+      }
+    });
+    const csv = '﻿' + csvRows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `勤務実績表_${staff ? staff.name : ''}_${monthInput}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   function isSubmitWindowOpen(d = new Date()){
@@ -2287,6 +2424,10 @@ const KV_COLLECTION = 'kv';
       await loadMonthRecords(monthInput);
       exportCSV(monthInput, true);
     });
+
+    $('ghAdminReportMonth').addEventListener('change', renderAdminReport);
+    $('ghAdminReportStaffSelect').addEventListener('change', renderAdminReport);
+    $('ghAdminReportExportBtn').addEventListener('click', exportAttendanceReportCSV);
 
     $('ghAdminSetLocationBtn').addEventListener('click', async () => {
       const address = $('ghAdminLocationAddress').value.trim();
