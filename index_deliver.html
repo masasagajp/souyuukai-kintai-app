@@ -550,6 +550,15 @@
         </div>
 
         <div class="gh-admin-section">
+          <h4>シフト自動作成</h4>
+          <p class="gh-admin-note" style="margin-bottom:8px;">対象月のシフト希望をもとにシフト表を自動作成します。希望が1人だけの時間帯はそのまま割り当て、複数人が重なっている時間帯は「⚠要調整」として希望者名を表示、誰も希望していない時間帯は「募集枠」にします（早番の希望を受け付けない日は対象外）。実行すると、その月の現在のシフト表は上書きされます。</p>
+          <div class="gh-row">
+            <input type="month" id="ghAdminAutoGenMonth" style="max-width:170px;" />
+            <button class="gh-btn primary small" id="ghAdminAutoGenBtn">シフト希望から自動作成</button>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
           <h4>管理者PINの変更</h4>
           <div class="gh-row">
             <input type="text" inputmode="numeric" maxlength="8" id="ghAdminNewPin" placeholder="新しいPIN" style="max-width:140px;" />
@@ -1063,6 +1072,7 @@ const KV_COLLECTION = 'kv';
     updateAdminLocationDisplay();
     $('ghAdminLocationError').style.display = 'none';
     if (!$('ghAdminLogMonth').value) $('ghAdminLogMonth').value = monthKey(new Date());
+    if (!$('ghAdminAutoGenMonth').value) $('ghAdminAutoGenMonth').value = monthKey(new Date());
     await renderAdminLogEditor();
   }
 
@@ -2049,6 +2059,23 @@ const KV_COLLECTION = 'kv';
     $('ghAdminPinInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') attemptPinSubmit();
     });
+    $('ghAdminAutoGenBtn').addEventListener('click', async () => {
+      const monthInput = $('ghAdminAutoGenMonth').value;
+      if (!monthInput) return;
+      const proceed = window.confirm(`${monthInput} のシフト表を、現在提出されているシフト希望をもとに自動作成します。今のシフト表の内容は上書きされます。よろしいですか？`);
+      if (!proceed) return;
+      const result = await autoGenerateSchedule(monthInput);
+      if ($('ghScheduleMonth').value === monthInput) await renderSchedule();
+      let msg = `自動作成が完了しました。\n\n割り当て済み: ${result.filledCount}件\n募集枠（希望者なし）: ${result.recruitCount}件\n要調整（希望が重複）: ${result.conflictCount}件`;
+      if (result.conflictDetails.length){
+        msg += `\n\n【要調整の内訳】\n${result.conflictDetails.join('\n')}`;
+      }
+      if (result.recruitDetails.length){
+        msg += `\n\n【募集枠の内訳】\n${result.recruitDetails.join('、')}`;
+      }
+      window.alert(msg);
+    });
+
     $('ghAdminLockBtn').addEventListener('click', async () => {
       adminUnlocked = false;
       adminViewAll = false;
