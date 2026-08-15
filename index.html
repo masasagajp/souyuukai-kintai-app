@@ -394,7 +394,7 @@
         <div class="gh-table-wrap">
           <table class="gh-table" id="ghReqTable">
             <thead id="ghReqThead">
-              <tr><th>日付</th><th>日勤</th><th>夜勤</th></tr>
+              <tr><th>日付</th><th>早番</th><th>日勤</th><th>夜勤</th></tr>
             </thead>
             <tbody id="ghReqBody"></tbody>
           </table>
@@ -1585,7 +1585,7 @@ const KV_COLLECTION = 'kv';
         });
       }
 
-      thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('day','日勤希望')}</th><th>${shiftHeaderLabel('night','夜勤希望')}</th><th>${shiftHeaderLabel('weekend','早番希望')}</th></tr>`;
+      thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番希望')}</th><th>${shiftHeaderLabel('day','日勤希望')}</th><th>${shiftHeaderLabel('night','夜勤希望')}</th></tr>`;
       body.innerHTML = days.map(d => {
         const dateStr = `${y}-${pad(m)}-${pad(d)}`;
         const dayNames = reqs.filter(r => r.date === dateStr && r.type === 'day').map(r => r.staffName);
@@ -1594,9 +1594,9 @@ const KV_COLLECTION = 'kv';
         const cls = calendarDayClass(dateStr);
         return `<tr class="${cls}">
           <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+          <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
           <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
           <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-          <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
         </tr>`;
       }).join('');
       return;
@@ -1624,7 +1624,7 @@ const KV_COLLECTION = 'kv';
 
     const dis = (windowOpen && !locked) ? '' : 'disabled';
 
-    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th><th>${shiftHeaderLabel('weekend','早番')}</th></tr>`;
+    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番')}</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th></tr>`;
     body.innerHTML = days.map(d => {
       const dateStr = `${y}-${pad(m)}-${pad(d)}`;
       const dayReqs = reqs.filter(r => r.staffId === selectedStaffId && r.date === dateStr);
@@ -1635,9 +1635,9 @@ const KV_COLLECTION = 'kv';
       const earlyTitle = earlyAllowed ? '' : ' title="早番は原則、土曜・日曜・祝日のみ選択できます（管理メニューで臨時許可を追加できます）"';
       return `<tr data-date="${dateStr}" class="${cls}">
         <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+        <td><button class="gh-shiftreq-btn${selectedTypes.has('weekend') ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
         <td><button class="gh-shiftreq-btn${selectedTypes.has('day') ? ' selected day' : ''}" data-type="day" ${dis}>日勤</button></td>
         <td><button class="gh-shiftreq-btn${selectedTypes.has('night') ? ' selected night' : ''}" data-type="night" ${dis}>夜勤</button></td>
-        <td><button class="gh-shiftreq-btn${selectedTypes.has('weekend') ? ' selected weekend' : ''}" data-type="weekend" ${earlyDis}${earlyTitle}>早番</button></td>
       </tr>`;
     }).join('');
 
