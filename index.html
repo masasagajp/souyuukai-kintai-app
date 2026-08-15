@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>グループホーム めだか - 勤怠管理</title>
+<style>
+  :root{
+    --bg: #EEF2EF;
+    --panel: #FFFFFF;
+    --ink: #24312C;
+    --ink-soft: #5B6B63;
+    --line: #DCE4DE;
+    --teal: #2F6F62;
+    --teal-deep: #1F4E44;
+    --amber: #E3A857;
+    --amber-soft: #F6E4C4;
+    --indigo: #3A4A6B;
+    --indigo-soft: #DDE1EC;
+    --coral: #D97757;
+    --radius: 16px;
+    --shadow: 0 2px 10px rgba(36,49,44,0.06), 0 1px 2px rgba(36,49,44,0.05);
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+
+  .gh-app {
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100%;
+    padding: 20px 16px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .gh-display { font-family: 'Zen Maru Gothic', 'Noto Sans JP', sans-serif; }
+
+  .gh-shell { width: 100%; max-width: 880px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* ---------- Header ---------- */
+  .gh-header {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px; padding: 18px 24px;
+    background: linear-gradient(120deg, #FBF2E3 0%, #F3EEDD 42%, #E7F0E5 100%);
+    border-radius: 20px; border: 1px solid #EFE6D2;
+    box-shadow: var(--shadow);
+  }
+  .gh-header-left { display: flex; align-items: center; gap: 12px; }
+  .gh-header-right { display: flex; align-items: center; gap: 12px; }
+  .gh-header-mark {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--amber), var(--teal));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: 'Zen Maru Gothic', sans-serif; font-weight: 700; font-size: 16px;
+  }
+  .gh-facility-name {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 22px; font-weight: 700; color: var(--teal-deep);
+    background: transparent; border: none; border-bottom: 1px dashed transparent;
+    padding: 2px 0; outline: none; max-width: 320px;
+  }
+  .gh-facility-name:hover, .gh-facility-name:focus { border-bottom-color: var(--coral); }
+  .gh-eyebrow { font-size: 10px; letter-spacing: 0.16em; color: var(--coral); text-transform: uppercase; font-weight: 700; }
+  .gh-clock { text-align: right; }
+  .gh-clock .time { font-family: 'Zen Maru Gothic', sans-serif; font-size: 40px; font-weight: 700; color: var(--teal-deep); line-height: 1; font-variant-numeric: tabular-nums; }
+  .gh-clock .date { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .gh-admin-open-btn {
+    width: 40px; height: 40px; padding: 0; border-radius: 50%; flex-shrink: 0;
+    background: #fff; border: 1px solid #EFE6D2; color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .gh-admin-open-btn:hover { background: var(--amber-soft); color: var(--teal-deep); }
+
+  .gh-nav-card {
+    width: 100%; display: flex; align-items: center; gap: 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 16px 18px; cursor: pointer; text-align: left;
+    font-family: 'Noto Sans JP', sans-serif; transition: transform 0.08s ease, box-shadow 0.15s ease;
+  }
+  .gh-nav-card:hover { transform: translateY(-1px); }
+  .gh-nav-card-icon {
+    width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+    background: var(--amber-soft); display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  .gh-nav-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .gh-nav-card-title { font-family: 'Zen Maru Gothic', sans-serif; font-weight: 700; font-size: 15px; color: var(--teal-deep); }
+  .gh-nav-card-sub { font-size: 12px; color: var(--ink-soft); }
+  .gh-nav-card-arrow { font-size: 22px; color: var(--ink-soft); flex-shrink: 0; }
+
+  .gh-device-staff-list { display: flex; flex-direction: column; gap: 8px; }
+  .gh-device-staff-btn {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+    background: #FBFCFB; cursor: pointer; font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px; color: var(--ink); text-align: left; transition: border-color 0.15s ease;
+  }
+  .gh-device-staff-btn:hover { border-color: var(--teal); background: #fff; }
+
+  /* ---------- Panels ---------- */
+  .gh-panel {
+    background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .gh-panel-title {
+    font-family: 'Zen Maru Gothic', sans-serif; font-size: 15px; font-weight: 700;
+    color: var(--teal-deep); margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .gh-panel-title::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); display: inline-block; }
+
+  .gh-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  select, input[type=text], input[type=month] {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 14px; color: var(--ink);
+    background: #FBFCFB; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; outline: none;
+  }
+  select:focus, input:focus { border-color: var(--teal); }
+
+  .gh-btn {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 500;
+    border: none; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.15s ease; color: var(--ink);
+    background: #EDF1EE; box-shadow: none;
+  }
+  .gh-btn:hover { transform: translateY(-1px); }
+  .gh-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .gh-btn.primary { background: var(--teal); color: white; }
+  .gh-btn.primary:hover { background: var(--teal-deep); }
+  .gh-btn.danger-out { background: var(--indigo); color: white; }
+  .gh-btn.danger-out:hover { background: #2c3a56; }
+  .gh-btn.ghost { background: transparent; border: 1px solid var(--line); }
+  .gh-btn.small { padding: 5px 10px; font-size: 12px; }
+  .gh-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ---------- Clock action ---------- */
+  .gh-status-line { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .gh-avatar {
+    width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; color: white; font-size: 13px; flex-shrink: 0;
+  }
+  .gh-status-text { font-size: 13px; color: var(--ink-soft); }
+  .gh-status-text b { color: var(--ink); }
+  .gh-clock-message {
+    font-size: 13px; color: #B3452F; background: #FBEAE4; border-radius: 10px;
+    padding: 10px 14px; margin-top: 12px;
+  }
+  .gh-action-btn { font-size: 15px; padding: 18px 14px; border-radius: 12px; width: 100%; font-weight: 700; }
+  .gh-action-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .gh-btn.out { background: var(--indigo); color: white; }
+  .gh-btn.out:hover { background: #2c3a56; }
+  .gh-btn.breakstart { background: var(--amber); color: white; }
+  .gh-btn.breakstart:hover { background: #c98f3f; }
+  .gh-btn.breakend { background: #8CA2C4; color: white; }
+  .gh-btn.breakend:hover { background: #6f88b0; }
+
+  @media (max-width: 560px) {
+    .gh-action-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- Table ---------- */
+  .gh-table-wrap { overflow-x: auto; }
+  table.gh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.gh-table th {
+    text-align: left; color: var(--ink-soft); font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 10px; border-bottom: 1px solid var(--line);
+  }
+  table.gh-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.gh-table tr:last-child td { border-bottom: none; }
+  .gh-tag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 500;
+  }
+  .gh-empty { text-align: center; padding: 30px 10px; color: var(--ink-soft); font-size: 13px; }
+  .gh-note-input { width: 100%; border: none; background: transparent; font-size: 13px; color: var(--ink-soft); }
+  .gh-note-input:focus { background: #FBFCFB; border-radius: 6px; }
+  .gh-loc-pin {
+    display: inline-block; font-size: 11px; color: var(--teal-deep); text-decoration: none;
+    white-space: nowrap;
+  }
+  .gh-loc-pin:hover { text-decoration: underline; }
+  .gh-loc-pin.gh-loc-warn { color: var(--coral); font-weight: 700; }
+
+  /* ---------- Summary ---------- */
+  .gh-summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px;
+  }
+  .gh-summary-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .gh-summary-name { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .gh-summary-hours { font-family: 'Zen Maru Gothic', sans-serif; font-size: 22px; font-weight: 700; color: var(--teal-deep); }
+  .gh-summary-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .gh-summary-shifts { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .gh-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--bg); color: var(--ink-soft); }
+
+  .gh-req-status {
+    font-size: 12px; padding: 8px 12px; border-radius: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .gh-req-status.open { background: #E4F0E9; color: var(--teal-deep); }
+  .gh-req-status.closed { background: #F1ECE3; color: #8A6D3B; }
+  .gh-req-status .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .gh-req-status.open .dot { background: var(--teal); }
+  .gh-req-status.closed .dot { background: #C9A24B; }
+
+  .gh-shiftreq-btn {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer;
+    background: #FBFCFB; color: var(--ink-soft); min-width: 64px;
+  }
+  .gh-shiftreq-btn:hover:not(:disabled) { border-color: var(--teal); }
+  .gh-shiftreq-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+  .gh-shiftreq-btn.selected.day { background: var(--amber); border-color: var(--amber); color: #fff; }
+  .gh-shiftreq-btn.selected.night { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+  .gh-shiftreq-btn.selected.weekend { background: var(--coral); border-color: var(--coral); color: #fff; }
+
+  .gh-shifttype-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gh-shifttype-btn {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    background: #FBFCFB; color: var(--ink-soft);
+  }
+  .gh-shifttype-btn:hover { border-color: var(--teal); }
+  .gh-shifttype-btn.selected { color: #fff; }
+  .gh-req-names { font-size: 12px; color: var(--ink); }
+  .gh-req-sub-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px;
+  }
+  .gh-req-sub-row:last-child { border-bottom: none; }
+  .gh-req-sub-tag { font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 500; }
+  .gh-req-sub-tag.submitted { background: #E4F0E9; color: var(--teal-deep); }
+  .gh-req-sub-tag.pending { background: #F1ECE3; color: #8A6D3B; }
+  tr.gh-day-sat > td { background: #EAEEF6; }
+  tr.gh-day-sat > td:first-child { color: var(--indigo); font-weight: 700; }
+  tr.gh-day-sun > td { background: #FBEAEA; }
+  tr.gh-day-sun > td:first-child { color: #C0392B; font-weight: 700; }
+
+  .gh-modal-overlay {
+    position: fixed; inset: 0; background: rgba(36,49,44,0.45); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .gh-modal-overlay.hidden { display: none; }
+  .gh-modal-panel {
+    background: var(--panel); border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; padding: 22px 24px;
+  }
+  .gh-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .gh-modal-title { font-family: 'Zen Maru Gothic', sans-serif; font-size: 17px; font-weight: 700; color: var(--teal-deep); }
+  .gh-modal-close { background: transparent; border: none; font-size: 20px; color: var(--ink-soft); cursor: pointer; line-height: 1; padding: 4px; }
+  .gh-admin-section { margin-bottom: 22px; }
+  .gh-admin-section h4 { font-size: 13px; font-weight: 700; color: var(--ink); margin: 0 0 10px; }
+  .gh-admin-staff-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .gh-admin-staff-row:last-child { border-bottom: none; }
+  .gh-admin-staff-row input[type=text] { flex: 1; min-width: 90px; }
+  .gh-admin-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gh-admin-field-label { font-size: 11px; color: var(--ink-soft); margin-bottom: 4px; display: block; }
+  .gh-admin-shift-block { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .gh-admin-checkline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
+  .gh-admin-error { font-size: 12px; color: #B3452F; margin-top: 8px; }
+  .gh-admin-note { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+
+  .gh-footer-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .gh-hint { font-size: 11px; color: var(--ink-soft); }
+
+  @media (max-width: 520px) {
+    .gh-header { flex-direction: column; align-items: stretch; padding: 16px; }
+    .gh-header-left { justify-content: space-between; }
+    .gh-header-right { justify-content: space-between; }
+    .gh-clock { text-align: left; }
+    .gh-clock .time { font-size: 32px; }
+    .gh-action-btn { width: 100%; }
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+</head>
+<body>
+<div class="gh-app">
+  <div class="gh-shell">
+
+    <div class="gh-header">
+      <div class="gh-header-left">
+        <div class="gh-header-mark gh-display">🌿</div>
+        <div>
+          <div class="gh-eyebrow">STAFF ATTENDANCE</div>
+          <input id="ghFacilityName" class="gh-facility-name gh-display" value="グループホーム めだか" />
+        </div>
+      </div>
+      <div class="gh-header-right">
+        <div class="gh-clock">
+          <div class="time gh-display" id="ghClockTime">--:--:--</div>
+          <div class="date" id="ghClockDate">----年--月--日（-）</div>
+        </div>
+        <button class="gh-admin-open-btn" id="ghAdminOpenBtn" title="管理メニュー">⚙</button>
+      </div>
+    </div>
+
+    <div id="ghMainView">
+
+      <div class="gh-panel">
+        <div class="gh-panel-title">打刻</div>
+        <div class="gh-row" style="margin-bottom:14px; justify-content: space-between; align-items:center;">
+          <span class="gh-hint">この端末はスタッフを自動的に認識します</span>
+          <button class="gh-btn ghost small" id="ghChangeStaffBtn">スタッフを変更</button>
+        </div>
+
+        <div class="gh-row" style="margin-bottom:14px; align-items:center;">
+          <span class="gh-hint">出勤時の勤務区分：</span>
+          <div class="gh-shifttype-group" id="ghShiftTypeGroup"></div>
+        </div>
+
+        <div class="gh-status-line">
+          <div class="gh-avatar" id="ghAvatar">-</div>
+          <div class="gh-status-text" id="ghStatusText">スタッフを選択してください</div>
+        </div>
+
+        <div class="gh-action-grid" id="ghActionGrid">
+          <button class="gh-btn primary gh-action-btn" id="ghBtnIn">出勤</button>
+          <button class="gh-btn out gh-action-btn" id="ghBtnOut">退勤</button>
+          <button class="gh-btn breakstart gh-action-btn" id="ghBtnBreakStart">休憩開始</button>
+          <button class="gh-btn breakend gh-action-btn" id="ghBtnBreakEnd">休憩終了</button>
+        </div>
+        <div class="gh-clock-message" id="ghClockMessage" style="display:none;"></div>
+      </div>
+
+      <button class="gh-nav-card" id="ghGotoReqBtn">
+        <span class="gh-nav-card-icon">📅</span>
+        <span class="gh-nav-card-text">
+          <span class="gh-nav-card-title">シフト希望を提出</span>
+          <span class="gh-nav-card-sub" id="ghReqNavSub">来月の希望シフトを提出・確認できます</span>
+        </span>
+        <span class="gh-nav-card-arrow">›</span>
+      </button>
+
+      <button class="gh-nav-card" id="ghGotoScheduleBtn">
+        <span class="gh-nav-card-icon">📋</span>
+        <span class="gh-nav-card-text">
+          <span class="gh-nav-card-title">今月のシフト表を見る</span>
+          <span class="gh-nav-card-sub">全スタッフの勤務予定を日付ごとに確認できます</span>
+        </span>
+        <span class="gh-nav-card-arrow">›</span>
+      </button>
+
+      <div class="gh-panel">
+        <div class="gh-footer-row" style="margin-bottom: 8px;">
+          <div class="gh-panel-title" style="margin-bottom:0;">打刻履歴</div>
+          <div class="gh-row">
+            <input type="month" id="ghLogMonth" />
+          </div>
+        </div>
+        <div class="gh-hint" id="ghLogWhoHint" style="margin-bottom:10px;"></div>
+        <div class="gh-table-wrap">
+          <table class="gh-table" id="ghLogTable">
+            <thead>
+              <tr><th>日付</th><th>氏名</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働時間</th><th>位置</th><th>メモ</th></tr>
+            </thead>
+            <tbody id="ghLogBody"></tbody>
+          </table>
+        </div>
+        <p class="gh-hint" style="margin-top:10px;">記録の修正・削除は管理メニューから行えます。</p>
+      </div>
+
+      <div class="gh-panel">
+        <div class="gh-footer-row" style="margin-bottom: 8px;">
+          <div class="gh-panel-title" style="margin-bottom:0;">月次サマリー</div>
+          <div class="gh-row">
+            <input type="month" id="ghSummaryMonth" />
+            <button class="gh-btn ghost small" id="ghExportBtn">CSVで書き出す</button>
+          </div>
+        </div>
+        <div class="gh-hint" id="ghSummaryWhoHint" style="margin-bottom:10px;"></div>
+        <div class="gh-summary-grid" id="ghSummaryGrid"></div>
+      </div>
+
+      <div class="gh-hint" style="text-align:center;">この記録はこの勤怠アプリを開く全員と共有されます（施設内共有データ）。</div>
+    </div>
+
+    <div id="ghReqView" style="display:none;">
+      <button class="gh-btn ghost small" id="ghBackToMainBtn" style="margin-bottom:14px;">← トップに戻る</button>
+
+      <div class="gh-panel">
+        <div class="gh-panel-title">シフト希望の提出</div>
+        <div class="gh-hint" id="ghReqWhoHint" style="margin-bottom:8px;"></div>
+        <div class="gh-req-status" id="ghReqStatus" style="margin-bottom:12px;"></div>
+
+        <div class="gh-footer-row" style="margin-bottom: 12px;">
+          <div class="gh-hint" style="font-size:12px;">対象月</div>
+          <input type="month" id="ghReqMonth" />
+        </div>
+        <div class="gh-table-wrap">
+          <table class="gh-table" id="ghReqTable">
+            <thead id="ghReqThead">
+              <tr><th>日付</th><th>日勤</th><th>夜勤</th></tr>
+            </thead>
+            <tbody id="ghReqBody"></tbody>
+          </table>
+        </div>
+
+        <div class="gh-row" id="ghReqSubmitRow" style="margin-top:16px; display:none;">
+          <button class="gh-btn primary" id="ghReqSubmitAllBtn">提出する</button>
+          <span class="gh-hint" id="ghReqSubmitStatusHint"></span>
+        </div>
+
+        <div id="ghReqSubmissionAdminWrap" style="margin-top:18px; display:none;">
+          <div class="gh-panel-title" style="font-size:13px;">提出状況（管理者ビュー）</div>
+          <div id="ghReqSubmissionAdminList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ghScheduleView" style="display:none;">
+      <button class="gh-btn ghost small" id="ghBackFromScheduleBtn" style="margin-bottom:14px;">← トップに戻る</button>
+
+      <div class="gh-panel">
+        <div class="gh-panel-title">シフト表</div>
+        <div class="gh-hint" id="ghScheduleSourceHint" style="margin-bottom:8px;"></div>
+
+        <div class="gh-footer-row" style="margin-bottom: 12px;">
+          <div class="gh-hint" style="font-size:12px;">対象月</div>
+          <input type="month" id="ghScheduleMonth" />
+        </div>
+        <div class="gh-table-wrap">
+          <table class="gh-table" id="ghScheduleTable">
+            <thead id="ghScheduleThead">
+              <tr><th>日付</th><th>早番</th><th>日勤</th><th>夜勤</th></tr>
+            </thead>
+            <tbody id="ghScheduleBody"></tbody>
+          </table>
+        </div>
+        <button class="gh-btn ghost small" id="ghScheduleClearPlanBtn" style="margin-top:14px; display:none;">手動作成データをクリア（打刻記録から自動生成に戻す）</button>
+      </div>
+    </div>
+
+    <div id="ghDeviceSetupView" style="display:none;">
+      <div class="gh-panel">
+        <div class="gh-panel-title">スタッフ認証</div>
+        <p class="gh-hint" style="margin-bottom:14px;">職員番号とPINを入力してください。一度認証すると、次回からこの端末は自動的にあなたとして認識されます。</p>
+        <div class="gh-row">
+          <input type="text" inputmode="numeric" id="ghLoginEmployeeNumber" placeholder="職員番号" style="max-width:160px;" />
+          <input type="text" inputmode="numeric" id="ghLoginPin" placeholder="PIN" style="max-width:160px;" />
+          <button class="gh-btn primary small" id="ghLoginSubmitBtn">ログイン</button>
+        </div>
+        <div class="gh-admin-error" id="ghLoginError" style="display:none;">職員番号またはPINが正しくありません。</div>
+        <p class="gh-admin-note">職員番号・PINが未設定の場合は、管理メニューから設定してください。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="gh-modal-overlay hidden" id="ghAdminOverlay">
+    <div class="gh-modal-panel">
+      <div class="gh-modal-header">
+        <div class="gh-modal-title">管理メニュー</div>
+        <button class="gh-modal-close" id="ghAdminCloseBtn">×</button>
+      </div>
+
+      <div id="ghAdminPinScreen">
+        <p class="gh-hint" style="margin-bottom:10px;">管理者PINを入力してください。</p>
+        <div class="gh-row">
+          <input type="text" inputmode="numeric" maxlength="8" id="ghAdminPinInput" placeholder="PIN" style="max-width:140px; letter-spacing:0.2em;" />
+          <button class="gh-btn primary small" id="ghAdminPinSubmit">確認</button>
+        </div>
+        <div class="gh-admin-error" id="ghAdminPinError" style="display:none;">PINが違います。</div>
+        <p class="gh-admin-note">初期PINは 0000 です。ログイン後に変更できます。</p>
+      </div>
+
+      <div id="ghAdminContent" style="display:none;">
+
+        <div class="gh-admin-section">
+          <h4>スタッフ管理</h4>
+          <p class="gh-admin-note" style="margin-bottom:8px;">氏名・職員番号・PINはこの画面のみに表示され、スタッフ本人には氏名・職員番号・PINのみ、他のスタッフの情報は表示されません。</p>
+          <div id="ghAdminStaffList"></div>
+          <div class="gh-row" style="margin-top:10px;">
+            <input type="text" id="ghAdminNewStaffName" placeholder="氏名" style="min-width:120px;" />
+            <input type="text" inputmode="numeric" id="ghAdminNewStaffNumber" placeholder="職員番号" style="max-width:120px;" />
+            <input type="text" inputmode="numeric" id="ghAdminNewStaffPin" placeholder="PIN" style="max-width:100px;" />
+            <button class="gh-btn primary small" id="ghAdminAddStaffBtn">追加</button>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
+          <div class="gh-footer-row" style="margin-bottom:10px;">
+            <h4 style="margin:0;">打刻記録の修正・削除</h4>
+            <input type="month" id="ghAdminLogMonth" />
+          </div>
+          <div class="gh-table-wrap">
+            <table class="gh-table" id="ghAdminLogTable">
+              <thead>
+                <tr><th>日付</th><th>氏名</th><th>区分</th><th>出勤</th><th>退勤</th><th>メモ</th><th></th></tr>
+              </thead>
+              <tbody id="ghAdminLogBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>勤務時間帯の設定</h4>
+          <div class="gh-admin-shift-block">
+            <span class="gh-admin-field-label">日勤</span>
+            <div class="gh-admin-grid2">
+              <div><span class="gh-admin-field-label">開始</span><input type="time" id="ghAdminDayStart" /></div>
+              <div><span class="gh-admin-field-label">終了</span><input type="time" id="ghAdminDayEnd" /></div>
+            </div>
+          </div>
+          <div class="gh-admin-shift-block">
+            <span class="gh-admin-field-label">夜勤</span>
+            <div class="gh-admin-grid2">
+              <div><span class="gh-admin-field-label">開始</span><input type="time" id="ghAdminNightStart" /></div>
+              <div><span class="gh-admin-field-label">終了</span><input type="time" id="ghAdminNightEnd" /></div>
+            </div>
+            <label class="gh-admin-checkline">
+              <input type="checkbox" id="ghAdminNightNextDay" /> 終了時刻は翌日
+            </label>
+          </div>
+          <div class="gh-admin-shift-block">
+            <span class="gh-admin-field-label">早番</span>
+            <div class="gh-admin-grid2">
+              <div><span class="gh-admin-field-label">開始</span><input type="time" id="ghAdminWeekendStart" /></div>
+              <div><span class="gh-admin-field-label">終了</span><input type="time" id="ghAdminWeekendEnd" /></div>
+            </div>
+          </div>
+          <button class="gh-btn primary small" id="ghAdminSaveShiftBtn">勤務時間帯を保存</button>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>シフト希望の提出期間</h4>
+          <div class="gh-admin-grid2">
+            <div><span class="gh-admin-field-label">開始日（1〜31）</span><input type="number" min="1" max="31" id="ghAdminWindowStart" /></div>
+            <div><span class="gh-admin-field-label">終了日（1〜31）</span><input type="number" min="1" max="31" id="ghAdminWindowEnd" /></div>
+          </div>
+          <button class="gh-btn primary small" id="ghAdminSaveWindowBtn" style="margin-top:10px;">提出期間を保存</button>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>管理者PINの変更</h4>
+          <div class="gh-row">
+            <input type="text" inputmode="numeric" maxlength="8" id="ghAdminNewPin" placeholder="新しいPIN" style="max-width:140px;" />
+            <button class="gh-btn ghost small" id="ghAdminSavePinBtn">PINを変更</button>
+          </div>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>施設の位置情報（打刻のGPS距離表示用）</h4>
+          <div class="gh-hint" id="ghAdminLocationDisplay" style="margin-bottom:8px;"></div>
+          <div class="gh-row">
+            <input type="text" id="ghAdminLocationAddress" placeholder="住所を入力（例：東京都新宿区西新宿2-8-1）" style="min-width:220px; flex:1;" />
+            <button class="gh-btn primary small" id="ghAdminSetLocationBtn">住所から登録</button>
+            <button class="gh-btn ghost small" id="ghAdminClearLocationBtn">登録を削除</button>
+          </div>
+          <div class="gh-admin-error" id="ghAdminLocationError" style="display:none;">住所から位置情報を取得できませんでした。住所を確認してください。</div>
+          <p class="gh-admin-note">入力した住所から緯度・経度を自動で取得して登録します。登録すると、以降の打刻記録に「施設からの距離」が表示されます。</p>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>閲覧範囲</h4>
+          <label class="gh-admin-checkline" style="font-size:13px; color:var(--ink);">
+            <input type="checkbox" id="ghAdminViewAllToggle" /> 全スタッフの打刻履歴・シフト希望・サマリーを表示する
+          </label>
+          <p class="gh-admin-note">オフの場合、通常画面では自分（選択中のスタッフ）の記録のみが表示されます。管理メニューを閉じてもこの設定は次にロックするまで維持されます。</p>
+        </div>
+
+        <div class="gh-admin-section" style="margin-bottom:0;">
+          <button class="gh-btn ghost small" id="ghAdminLockBtn">管理メニューをロックする</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDO5daZp3Sw7WW9JXyIocvoEk-tAjfCSU0",
+  authDomain: "souyuukai-kintai.firebaseapp.com",
+  projectId: "souyuukai-kintai",
+  storageBucket: "souyuukai-kintai.firebasestorage.app",
+  messagingSenderId: "857057271180",
+  appId: "1:857057271180:web:6c9705ece7264411c4caa9"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const KV_COLLECTION = 'kv';
+
+(function(){
+  const SHIFTS = [
+    { key: 'day',     label: '日勤',   start: 15, end: 21,  color: '#E3A857' },
+    { key: 'night',   label: '夜勤',   start: 21, end: 34,  color: '#3A4A6B' }, // 34 = 10:00 next day (visual only)
+    { key: 'weekend', label: '早番', start: 10, end: 15,  color: '#D97757' },
+  ];
+  const SHIFT_MAP = Object.fromEntries(SHIFTS.map(s => [s.key, s]));
+  const REQUEST_TYPES = [
+    { key: 'day',     label: '日勤希望',   color: '#E3A857' },
+    { key: 'night',   label: '夜勤希望',   color: '#3A4A6B' },
+    { key: 'weekend', label: '早番希望', color: '#D97757' },
+  ];
+  const REQUEST_TYPE_MAP = Object.fromEntries(REQUEST_TYPES.map(t => [t.key, t]));
+  let SUBMIT_WINDOW_START = 20; // day of month
+  let SUBMIT_WINDOW_END = 26;   // day of month (inclusive)
+  const AVATAR_COLORS = ['#2F6F62', '#3A4A6B', '#D97757', '#8CA2C4', '#E3A857', '#7A9A7E'];
+
+  let staffList = [];
+  let selectedStaffId = null;
+  let deviceStaffId = null;
+  let selectedShiftKey = 'day';
+  let recordsCache = {}; // monthKey -> array
+  let adminUnlocked = false;
+  let adminPin = null;
+  let adminViewAll = false;
+  let facilityLocation = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function monthKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+  function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  function fmtTime(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+  function weekdayJP(d){ return ['日','月','火','水','木','金','土'][d.getDay()]; }
+  function initials(name){ return name ? name.slice(0,1) : '?'; }
+  function colorForStaff(id){
+    const idx = staffList.findIndex(s => s.id === id);
+    return AVATAR_COLORS[(idx >= 0 ? idx : 0) % AVATAR_COLORS.length];
+  }
+
+  // ---------------- Japanese holidays (approximate calculation) ----------------
+  const holidayCacheByYear = {};
+
+  function nthMondayOfMonth(year, month, n){
+    let count = 0;
+    for (let day = 1; day <= 31; day++){
+      const dt = new Date(year, month - 1, day);
+      if (dt.getMonth() !== month - 1) break;
+      if (dt.getDay() === 1){
+        count++;
+        if (count === n) return day;
+      }
+    }
+    return null;
+  }
+  function vernalEquinoxDay(year){
+    return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  }
+  function autumnalEquinoxDay(year){
+    return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  }
+
+  function computeHolidaysForYear(year){
+    const h = {};
+    const add = (m, d, name) => { if (d) h[`${year}-${pad(m)}-${pad(d)}`] = name; };
+
+    add(1, 1, '元日');
+    add(1, nthMondayOfMonth(year, 1, 2), '成人の日');
+    add(2, 11, '建国記念の日');
+    add(2, 23, '天皇誕生日');
+    add(3, vernalEquinoxDay(year), '春分の日');
+    add(4, 29, '昭和の日');
+    add(5, 3, '憲法記念日');
+    add(5, 4, 'みどりの日');
+    add(5, 5, 'こどもの日');
+    add(7, nthMondayOfMonth(year, 7, 3), '海の日');
+    add(8, 11, '山の日');
+    add(9, nthMondayOfMonth(year, 9, 3), '敬老の日');
+    add(9, autumnalEquinoxDay(year), '秋分の日');
+    add(10, nthMondayOfMonth(year, 10, 2), 'スポーツの日');
+    add(11, 3, '文化の日');
+    add(11, 23, '勤労感謝の日');
+
+    // substitute holidays: a holiday on Sunday shifts to the next non-holiday day
+    Object.keys(h).forEach(dateStr => {
+      const [yy, mm, dd] = dateStr.split('-').map(Number);
+      const dt = new Date(yy, mm - 1, dd);
+      if (dt.getDay() === 0){
+        let next = new Date(dt.getTime() + 24 * 3600 * 1000);
+        let nextKey = dateKey(next);
+        while (h[nextKey]){
+          next = new Date(next.getTime() + 24 * 3600 * 1000);
+          nextKey = dateKey(next);
+        }
+        h[nextKey] = '振替休日';
+      }
+    });
+
+    return h;
+  }
+
+  function getHolidaysForYear(year){
+    if (!holidayCacheByYear[year]) holidayCacheByYear[year] = computeHolidaysForYear(year);
+    return holidayCacheByYear[year];
+  }
+  function getHolidayName(dateStr){
+    const year = parseInt(dateStr.slice(0, 4), 10);
+    return getHolidaysForYear(year)[dateStr] || null;
+  }
+  function dayOfWeekNum(dateStr){
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).getDay();
+  }
+  function isWeekendOrHoliday(dateStr){
+    const dow = dayOfWeekNum(dateStr);
+    return dow === 0 || dow === 6 || !!getHolidayName(dateStr);
+  }
+  function calendarDayClass(dateStr){
+    const dow = dayOfWeekNum(dateStr);
+    if (getHolidayName(dateStr) || dow === 0) return 'gh-day-sun';
+    if (dow === 6) return 'gh-day-sat';
+    return '';
+  }
+  function dateWeekdayLabel(m, d, dateStr){
+    const wd = weekdayJP(new Date(parseInt(dateStr.slice(0,4),10), m - 1, d));
+    const hName = getHolidayName(dateStr);
+    return hName ? `${m}/${d}（${wd}・${hName}）` : `${m}/${d}（${wd}）`;
+  }
+
+  async function storageGet(key, shared){
+    if (!shared){
+      try { return localStorage.getItem(key); } catch(e){ return null; }
+    }
+    try {
+      const ref = doc(db, KV_COLLECTION, key);
+      const snap = await getDoc(ref);
+      return snap.exists() ? snap.data().value : null;
+    } catch(e){ console.error('storage get failed', key, e); return null; }
+  }
+  async function storageSet(key, value, shared){
+    if (!shared){
+      try { localStorage.setItem(key, value); } catch(e){}
+      return;
+    }
+    try {
+      const ref = doc(db, KV_COLLECTION, key);
+      await setDoc(ref, { value });
+    } catch(e){ console.error('storage set failed', key, e); }
+  }
+
+  async function loadStaff(){
+    const raw = await storageGet('gh-staff', true);
+    staffList = raw ? JSON.parse(raw) : [];
+    if (staffList.length === 0){
+      staffList = [
+        {id: 'staff-1', name: '田中 花子', employeeNumber: '1001', pin: '0000'},
+        {id: 'staff-2', name: '佐藤 健', employeeNumber: '1002', pin: '0000'},
+      ];
+      await storageSet('gh-staff', JSON.stringify(staffList), true);
+    }
+  }
+  async function saveStaff(){
+    await storageSet('gh-staff', JSON.stringify(staffList), true);
+  }
+
+  async function loadMonthRecords(mKey){
+    if (recordsCache[mKey]) return recordsCache[mKey];
+    const raw = await storageGet(`gh-records-${mKey}`, true);
+    const arr = raw ? JSON.parse(raw) : [];
+    recordsCache[mKey] = arr;
+    return arr;
+  }
+  async function saveMonthRecords(mKey){
+    await storageSet(`gh-records-${mKey}`, JSON.stringify(recordsCache[mKey] || []), true);
+  }
+
+  let requestsCache = {}; // monthKey -> array
+  async function loadMonthRequests(mKey){
+    if (requestsCache[mKey]) return requestsCache[mKey];
+    const raw = await storageGet(`gh-shift-requests-${mKey}`, true);
+    const arr = raw ? JSON.parse(raw) : [];
+    requestsCache[mKey] = arr;
+    return arr;
+  }
+  async function saveMonthRequests(mKey){
+    await storageSet(`gh-shift-requests-${mKey}`, JSON.stringify(requestsCache[mKey] || []), true);
+  }
+
+  let submissionsCache = {}; // monthKey -> { staffId: isoString }
+  async function loadMonthSubmissions(mKey){
+    if (submissionsCache[mKey]) return submissionsCache[mKey];
+    const raw = await storageGet(`gh-req-submitted-${mKey}`, true);
+    const obj = raw ? JSON.parse(raw) : {};
+    submissionsCache[mKey] = obj;
+    return obj;
+  }
+  async function saveMonthSubmissions(mKey){
+    await storageSet(`gh-req-submitted-${mKey}`, JSON.stringify(submissionsCache[mKey] || {}), true);
+  }
+
+  async function loadFacilityName(){
+    const raw = await storageGet('gh-facility-name', true);
+    if (raw) $('ghFacilityName').value = raw;
+  }
+
+  function hoursToTimeStr(h){
+    const norm = ((h % 24) + 24) % 24;
+    const hh = Math.floor(norm);
+    const mm = Math.round((norm - hh) * 60);
+    return `${pad(hh)}:${pad(mm)}`;
+  }
+  function timeStrToHours(str){
+    const [hh, mm] = str.split(':').map(Number);
+    return hh + (mm || 0) / 60;
+  }
+
+  async function loadPersistedSettings(){
+    const rawShift = await storageGet('gh-shift-config', true);
+    if (rawShift){
+      try {
+        const cfg = JSON.parse(rawShift);
+        if (cfg.day)   { SHIFT_MAP.day.start = cfg.day.start;   SHIFT_MAP.day.end = cfg.day.end; }
+        if (cfg.night) { SHIFT_MAP.night.start = cfg.night.start; SHIFT_MAP.night.end = cfg.night.end; }
+        if (cfg.weekend) { SHIFT_MAP.weekend.start = cfg.weekend.start; SHIFT_MAP.weekend.end = cfg.weekend.end; }
+      } catch(e){ /* ignore malformed config */ }
+    }
+    const rawWindow = await storageGet('gh-submit-window', true);
+    if (rawWindow){
+      try {
+        const w = JSON.parse(rawWindow);
+        if (w.start) SUBMIT_WINDOW_START = w.start;
+        if (w.end) SUBMIT_WINDOW_END = w.end;
+      } catch(e){ /* ignore malformed config */ }
+    }
+    const rawLoc = await storageGet('gh-facility-location', true);
+    if (rawLoc){
+      try {
+        const loc = JSON.parse(rawLoc);
+        if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') facilityLocation = loc;
+      } catch(e){ /* ignore malformed config */ }
+    }
+  }
+
+  async function getAdminPin(){
+    if (adminPin) return adminPin;
+    const raw = await storageGet('gh-admin-pin', true);
+    adminPin = raw || '0000';
+    return adminPin;
+  }
+
+  // ---------------- Admin menu ----------------
+  function showAdminPinScreen(){
+    $('ghAdminPinScreen').style.display = 'block';
+    $('ghAdminContent').style.display = 'none';
+    $('ghAdminPinInput').value = '';
+    $('ghAdminPinError').style.display = 'none';
+  }
+  function showAdminContentScreen(){
+    $('ghAdminPinScreen').style.display = 'none';
+    $('ghAdminContent').style.display = 'block';
+  }
+
+  function renderAdminStaffList(){
+    const list = $('ghAdminStaffList');
+    if (staffList.length === 0){
+      list.innerHTML = `<div class="gh-hint">スタッフが登録されていません</div>`;
+      return;
+    }
+    list.innerHTML = staffList.map(s => `
+      <div class="gh-admin-staff-row" data-staff-id="${s.id}">
+        <input type="text" value="${(s.name||'').replace(/"/g,'&quot;')}" data-rename-id="${s.id}" placeholder="氏名" />
+        <input type="text" inputmode="numeric" value="${(s.employeeNumber||'').replace(/"/g,'&quot;')}" data-number-id="${s.id}" placeholder="職員番号" style="max-width:110px;" />
+        <input type="text" inputmode="numeric" value="${(s.pin||'').replace(/"/g,'&quot;')}" data-pin-id="${s.id}" placeholder="PIN" style="max-width:90px;" />
+        <button class="gh-btn ghost small gh-admin-staff-del" data-del-id="${s.id}">削除</button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('[data-rename-id]').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-rename-id');
+        const staff = staffList.find(s => s.id === id);
+        const newName = e.target.value.trim();
+        if (staff && newName){
+          staff.name = newName;
+          await saveStaff();
+          await refreshStatus();
+          await renderSummary();
+          await renderLog();
+          await renderRequests();
+        }
+      });
+    });
+    list.querySelectorAll('[data-number-id]').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-number-id');
+        const staff = staffList.find(s => s.id === id);
+        if (staff){
+          staff.employeeNumber = e.target.value.trim();
+          await saveStaff();
+        }
+      });
+    });
+    list.querySelectorAll('[data-pin-id]').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-pin-id');
+        const staff = staffList.find(s => s.id === id);
+        if (staff){
+          staff.pin = e.target.value.trim();
+          await saveStaff();
+        }
+      });
+    });
+    list.querySelectorAll('.gh-admin-staff-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.getAttribute('data-del-id');
+        staffList = staffList.filter(s => s.id !== id);
+        await saveStaff();
+        if (selectedStaffId === id) selectedStaffId = staffList[0]?.id || null;
+        if (deviceStaffId === id){
+          await clearDeviceStaffId();
+          showDeviceSetupView();
+        }
+        renderAdminStaffList();
+        await refreshStatus();
+        await renderSummary();
+        await renderLog();
+        await renderRequests();
+      });
+    });
+  }
+
+  function updateAdminLocationDisplay(){
+    const el = $('ghAdminLocationDisplay');
+    if (!el) return;
+    if (facilityLocation){
+      const addr = facilityLocation.address ? `${facilityLocation.address}（` : '（';
+      el.textContent = `登録済み：${addr}緯度 ${facilityLocation.lat.toFixed(5)} / 経度 ${facilityLocation.lng.toFixed(5)}）`;
+    } else {
+      el.textContent = '施設の位置は未登録です（登録すると打刻記録に施設からの距離が表示されます）。';
+    }
+  }
+
+  async function renderAdminLogEditor(){
+    const monthInput = $('ghAdminLogMonth').value;
+    if (!monthInput) return;
+    const recs = await loadMonthRecords(monthInput);
+    const sorted = [...recs].sort((a,b) => (a.date+a.clockIn).localeCompare(b.date+b.clockIn)).reverse();
+    const body = $('ghAdminLogBody');
+    if (sorted.length === 0){
+      body.innerHTML = `<tr><td colspan="7" class="gh-empty">この月の打刻記録はまだありません</td></tr>`;
+      return;
+    }
+    body.innerHTML = sorted.map(r => {
+      const shift = SHIFT_MAP[r.shiftType];
+      const [yy,mm,dd] = r.date.split('-').map(Number);
+      const cls = calendarDayClass(r.date);
+      return `<tr data-id="${r.id}" class="${cls}">
+        <td>${dateWeekdayLabel(mm, dd, r.date)}</td>
+        <td>${r.staffName}</td>
+        <td><span class="gh-tag" style="background:${shift.color}22; color:${shift.color};">${shift.label}</span></td>
+        <td>${r.clockIn}</td>
+        <td>${r.clockOut || '<span style="color:var(--ink-soft)">勤務中</span>'}</td>
+        <td><input class="gh-note-input" value="${(r.note||'').replace(/"/g,'&quot;')}" data-note-id="${r.id}" placeholder="メモ"/></td>
+        <td><button class="gh-btn ghost small gh-admin-log-del" data-del-id="${r.id}">削除</button></td>
+      </tr>`;
+    }).join('');
+
+    body.querySelectorAll('.gh-note-input').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-note-id');
+        const arr = recordsCache[monthInput] || [];
+        const rec = arr.find(r => r.id === id);
+        if (rec){
+          rec.note = e.target.value;
+          await saveMonthRecords(monthInput);
+          await renderLog();
+        }
+      });
+    });
+    body.querySelectorAll('.gh-admin-log-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.getAttribute('data-del-id');
+        recordsCache[monthInput] = (recordsCache[monthInput]||[]).filter(r => r.id !== id);
+        await saveMonthRecords(monthInput);
+        await renderAdminLogEditor();
+        await renderLog();
+        await renderSummary();
+        await refreshStatus();
+      });
+    });
+  }
+
+  async function populateAdminForm(){
+    renderAdminStaffList();
+    $('ghAdminDayStart').value = hoursToTimeStr(SHIFT_MAP.day.start);
+    $('ghAdminDayEnd').value = hoursToTimeStr(SHIFT_MAP.day.end);
+    $('ghAdminNightStart').value = hoursToTimeStr(SHIFT_MAP.night.start);
+    $('ghAdminNightEnd').value = hoursToTimeStr(SHIFT_MAP.night.end);
+    $('ghAdminNightNextDay').checked = SHIFT_MAP.night.end > 24;
+    $('ghAdminWeekendStart').value = hoursToTimeStr(SHIFT_MAP.weekend.start);
+    $('ghAdminWeekendEnd').value = hoursToTimeStr(SHIFT_MAP.weekend.end);
+    $('ghAdminWindowStart').value = SUBMIT_WINDOW_START;
+    $('ghAdminWindowEnd').value = SUBMIT_WINDOW_END;
+    $('ghAdminNewPin').value = '';
+    $('ghAdminViewAllToggle').checked = adminViewAll;
+    $('ghAdminLocationAddress').value = facilityLocation && facilityLocation.address ? facilityLocation.address : '';
+    updateAdminLocationDisplay();
+    $('ghAdminLocationError').style.display = 'none';
+    if (!$('ghAdminLogMonth').value) $('ghAdminLogMonth').value = monthKey(new Date());
+    await renderAdminLogEditor();
+  }
+
+  // ---------------- Shift type select ----------------
+  function renderShiftTypeSelect(){
+    const el = $('ghShiftTypeGroup');
+    el.innerHTML = SHIFTS.map(s => `
+      <button class="gh-shifttype-btn${s.key === selectedShiftKey ? ' selected' : ''}" data-key="${s.key}"
+        style="${s.key === selectedShiftKey ? `background:${s.color}; border-color:${s.color};` : ''}">
+        ${s.label}（${hoursToTimeStr(s.start)}〜${hoursToTimeStr(s.end % 24 === 0 ? 24 : s.end)}）
+      </button>
+    `).join('');
+    el.querySelectorAll('.gh-shifttype-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedShiftKey = btn.getAttribute('data-key');
+        renderShiftTypeSelect();
+      });
+    });
+  }
+
+  // ---------------- Device recognition ----------------
+  async function loadDeviceStaffId(){
+    const raw = await storageGet('gh-device-staff-id', false);
+    deviceStaffId = raw || null;
+  }
+  async function setDeviceStaffId(id){
+    deviceStaffId = id;
+    await storageSet('gh-device-staff-id', id, false);
+  }
+  async function clearDeviceStaffId(){
+    deviceStaffId = null;
+    await storageSet('gh-device-staff-id', '', false);
+  }
+
+  function showDeviceSetupView(){
+    $('ghMainView').style.display = 'none';
+    $('ghReqView').style.display = 'none';
+    $('ghScheduleView').style.display = 'none';
+    $('ghDeviceSetupView').style.display = '';
+    $('ghLoginEmployeeNumber').value = '';
+    $('ghLoginPin').value = '';
+    $('ghLoginError').style.display = 'none';
+    $('ghLoginEmployeeNumber').focus();
+  }
+
+  async function attemptLogin(){
+    const num = $('ghLoginEmployeeNumber').value.trim();
+    const pin = $('ghLoginPin').value.trim();
+    $('ghLoginError').style.display = 'none';
+    if (!num || !pin) return;
+    const staff = staffList.find(s => s.employeeNumber && s.employeeNumber === num && s.pin === pin);
+    if (!staff){
+      $('ghLoginError').style.display = 'block';
+      $('ghLoginPin').value = '';
+      return;
+    }
+    selectedStaffId = staff.id;
+    await setDeviceStaffId(staff.id);
+    await enterMainView();
+  }
+
+  async function enterMainView(){
+    showMainView();
+    hideClockMessage();
+    await refreshStatus();
+    await renderLog();
+    await renderSummary();
+  }
+
+  async function findOpenRecordForStaff(staffId){
+    // check current month and previous month (for overnight shifts)
+    const now = new Date();
+    const prev = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const curKey = monthKey(now), prevKey = monthKey(prev);
+    const curRecs = await loadMonthRecords(curKey);
+    const prevRecs = await loadMonthRecords(prevKey);
+    const all = [...prevRecs, ...curRecs];
+    return all.reverse().find(r => r.staffId === staffId && !r.clockOut) || null;
+  }
+
+  async function refreshStatus(){
+    const staff = staffList.find(s => s.id === selectedStaffId);
+    const buttons = [$('ghBtnIn'), $('ghBtnOut'), $('ghBtnBreakStart'), $('ghBtnBreakEnd')];
+    if (!staff){
+      $('ghStatusText').textContent = 'スタッフを選択してください';
+      buttons.forEach(b => b.disabled = true);
+      return;
+    }
+    $('ghAvatar').textContent = initials(staff.name);
+    $('ghAvatar').style.background = colorForStaff(staff.id);
+
+    const open = await findOpenRecordForStaff(staff.id);
+    const lastBreak = open && open.breaks && open.breaks.length ? open.breaks[open.breaks.length - 1] : null;
+    const onBreak = !!(lastBreak && !lastBreak.end);
+
+    $('ghBtnIn').disabled = !!open;
+    $('ghBtnOut').disabled = !open || onBreak;
+    $('ghBtnBreakStart').disabled = !open || onBreak;
+    $('ghBtnBreakEnd').disabled = !open || !onBreak;
+
+    if (onBreak){
+      $('ghStatusText').innerHTML = `<b>${staff.name}</b> さんは <b>${lastBreak.start}</b> から休憩中です`;
+    } else if (open){
+      $('ghStatusText').innerHTML = `<b>${staff.name}</b> さんは <b>${SHIFT_MAP[open.shiftType].label}</b> で ${open.clockIn} から勤務中です`;
+    } else {
+      $('ghStatusText').innerHTML = `<b>${staff.name}</b> さんは現在、勤務外です`;
+    }
+  }
+
+  function setActionButtonsBusy(busy){
+    ['ghBtnIn','ghBtnOut','ghBtnBreakStart','ghBtnBreakEnd'].forEach(id => { $(id).disabled = busy; });
+  }
+
+  function getCurrentLocation(){
+    return new Promise((resolve) => {
+      if (!navigator.geolocation){ resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    });
+  }
+
+  function distanceMeters(a, b){
+    if (!a || !b) return null;
+    const R = 6371000;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function mapsLink(loc){
+    return `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+  }
+
+  function locPinHtml(label, loc){
+    if (!loc) return '';
+    const dist = facilityLocation ? Math.round(distanceMeters(facilityLocation, loc)) : null;
+    const far = dist !== null && dist > 300;
+    const title = dist !== null ? `${label} 施設から約${dist}m` : `${label}の位置`;
+    return `<a href="${mapsLink(loc)}" target="_blank" rel="noopener" class="gh-loc-pin${far ? ' gh-loc-warn' : ''}" title="${title}">📍${label}${dist !== null ? `(${dist}m)` : ''}</a>`;
+  }
+
+  function locCellHtml(record){
+    const inHtml = locPinHtml('出', record.clockInLoc);
+    const outHtml = locPinHtml('退', record.clockOutLoc);
+    if (!inHtml && !outHtml) return '<span style="color:var(--ink-soft)">—</span>';
+    return `${inHtml}${inHtml && outHtml ? ' ' : ''}${outHtml}`;
+  }
+
+  function showClockMessage(msg){
+    const el = $('ghClockMessage');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideClockMessage(){
+    const el = $('ghClockMessage');
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+
+  async function withOpenRecord(fn){
+    const staff = staffList.find(s => s.id === selectedStaffId);
+    if (!staff) return;
+    setActionButtonsBusy(true);
+    $('ghStatusText').innerHTML = `<b>${staff.name}</b> さんの位置情報を取得中です…`;
+    const loc = await getCurrentLocation();
+    const open = await findOpenRecordForStaff(staff.id);
+    await fn(staff, open, loc);
+    await refreshStatus();
+    await renderLog();
+    await renderSummary();
+  }
+
+  async function handleClockIn(){
+    await withOpenRecord(async (staff, open, loc) => {
+      if (open){
+        showClockMessage(`整合性エラー：${staff.name} さんは既に「${SHIFT_MAP[open.shiftType].label}」で ${open.clockIn} から出勤中です。先に退勤してください。`);
+        return;
+      }
+      hideClockMessage();
+      const now = new Date();
+      const mKey = monthKey(now);
+      const recs = await loadMonthRecords(mKey);
+      const record = {
+        id: 'r-' + Date.now(),
+        staffId: staff.id,
+        staffName: staff.name,
+        date: dateKey(now),
+        shiftType: selectedShiftKey,
+        clockIn: fmtTime(now),
+        clockInLoc: loc,
+        clockOut: null,
+        clockOutLoc: null,
+        breaks: [],
+        note: '',
+        _monthKey: mKey,
+      };
+      recs.push(record);
+      recordsCache[mKey] = recs;
+      await saveMonthRecords(mKey);
+    });
+  }
+
+  async function handleClockOut(){
+    await withOpenRecord(async (staff, open, loc) => {
+      if (!open){
+        showClockMessage(`整合性エラー：${staff.name} さんの出勤記録がありません。先に出勤してください。`);
+        return;
+      }
+      const lastBreak = open.breaks && open.breaks.length ? open.breaks[open.breaks.length - 1] : null;
+      if (lastBreak && !lastBreak.end){
+        showClockMessage(`整合性エラー：${staff.name} さんは ${lastBreak.start} から休憩中です。休憩を終了してから退勤してください。`);
+        return;
+      }
+      hideClockMessage();
+      open.clockOut = fmtTime(new Date());
+      open.clockOutLoc = loc;
+      await saveMonthRecords(open._monthKey);
+    });
+  }
+
+  async function handleBreakStart(){
+    await withOpenRecord(async (staff, open, loc) => {
+      if (!open){
+        showClockMessage(`整合性エラー：${staff.name} さんは出勤していないため休憩を開始できません。`);
+        return;
+      }
+      const lastBreak = open.breaks && open.breaks.length ? open.breaks[open.breaks.length - 1] : null;
+      if (lastBreak && !lastBreak.end){
+        showClockMessage(`整合性エラー：${staff.name} さんは既に ${lastBreak.start} から休憩中です。`);
+        return;
+      }
+      hideClockMessage();
+      open.breaks = open.breaks || [];
+      open.breaks.push({ start: fmtTime(new Date()), end: null, startLoc: loc, endLoc: null });
+      await saveMonthRecords(open._monthKey);
+    });
+  }
+
+  async function handleBreakEnd(){
+    await withOpenRecord(async (staff, open, loc) => {
+      if (!open){
+        showClockMessage(`整合性エラー：${staff.name} さんの出勤記録がありません。`);
+        return;
+      }
+      const lastBreak = open.breaks && open.breaks.length ? open.breaks[open.breaks.length - 1] : null;
+      if (!lastBreak || lastBreak.end){
+        showClockMessage(`整合性エラー：${staff.name} さんは現在休憩中ではありません。`);
+        return;
+      }
+      hideClockMessage();
+      lastBreak.end = fmtTime(new Date());
+      lastBreak.endLoc = loc;
+      await saveMonthRecords(open._monthKey);
+    });
+  }
+
+  // ---------------- Log table ----------------
+  function hoursBetween(dateStr, inStr, outStr){
+    if (!inStr || !outStr) return null;
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const [ih, im] = inStr.split(':').map(Number);
+    const [oh, om] = outStr.split(':').map(Number);
+    const start = new Date(y, m-1, d, ih, im);
+    let end = new Date(y, m-1, d, oh, om);
+    if (end <= start) end = new Date(end.getTime() + 24*3600*1000); // overnight
+    return (end - start) / 3600000;
+  }
+
+  function breakHoursTotal(record){
+    if (!record.breaks || !record.breaks.length) return 0;
+    return record.breaks.reduce((sum, b) => {
+      if (!b.start || !b.end) return sum;
+      return sum + hoursBetween(record.date, b.start, b.end);
+    }, 0);
+  }
+
+  function netWorkedHours(record){
+    const gross = hoursBetween(record.date, record.clockIn, record.clockOut);
+    if (gross === null) return null;
+    return Math.max(0, gross - breakHoursTotal(record));
+  }
+
+  async function renderLog(){
+    const monthInput = $('ghLogMonth').value; // yyyy-mm
+    const recs = await loadMonthRecords(monthInput);
+    const viewingAll = adminUnlocked && adminViewAll;
+    const scoped = viewingAll ? recs : recs.filter(r => r.staffId === selectedStaffId);
+    const sorted = [...scoped].sort((a,b) => (a.date+a.clockIn).localeCompare(b.date+b.clockIn)).reverse();
+    const body = $('ghLogBody');
+
+    const currentStaff = staffList.find(s => s.id === selectedStaffId);
+    $('ghLogWhoHint').textContent = viewingAll
+      ? '管理者ビュー：全スタッフの打刻履歴を表示中です。'
+      : (currentStaff ? `${currentStaff.name} さんの打刻履歴です。` : 'スタッフを選択してください。');
+
+    if (sorted.length === 0){
+      body.innerHTML = `<tr><td colspan="9" class="gh-empty">この月の打刻記録はまだありません</td></tr>`;
+      return;
+    }
+    body.innerHTML = sorted.map(r => {
+      const shift = SHIFT_MAP[r.shiftType];
+      const net = netWorkedHours(r);
+      const breakMin = Math.round(breakHoursTotal(r) * 60);
+      const breakOpen = r.breaks && r.breaks.length && !r.breaks[r.breaks.length-1].end;
+      const [yy,mm,dd] = r.date.split('-').map(Number);
+      const cls = calendarDayClass(r.date);
+      return `<tr data-id="${r.id}" data-month="${monthInput}" class="${cls}">
+        <td>${dateWeekdayLabel(mm, dd, r.date)}</td>
+        <td>${r.staffName}</td>
+        <td><span class="gh-tag" style="background:${shift.color}22; color:${shift.color};">${shift.label}</span></td>
+        <td>${r.clockIn}</td>
+        <td>${r.clockOut || '<span style="color:var(--ink-soft)">勤務中</span>'}</td>
+        <td>${breakOpen ? '<span style="color:var(--ink-soft)">休憩中</span>' : (breakMin > 0 ? breakMin+'分' : '—')}</td>
+        <td>${net !== null ? net.toFixed(1)+'h' : '—'}</td>
+        <td>${locCellHtml(r)}</td>
+        <td>${r.note ? r.note.replace(/</g,'&lt;') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ---------------- Summary ----------------
+  async function renderSummary(){
+    const monthInput = $('ghSummaryMonth').value;
+    const recs = await loadMonthRecords(monthInput);
+    const grid = $('ghSummaryGrid');
+    const viewingAll = adminUnlocked && adminViewAll;
+
+    if (staffList.length === 0){
+      grid.innerHTML = `<div class="gh-empty">スタッフが登録されていません</div>`;
+      $('ghSummaryWhoHint').textContent = '';
+      return;
+    }
+
+    const targets = viewingAll ? staffList : staffList.filter(s => s.id === selectedStaffId);
+    const currentStaff = staffList.find(s => s.id === selectedStaffId);
+    $('ghSummaryWhoHint').textContent = viewingAll
+      ? '管理者ビュー：全スタッフのサマリーを表示中です。'
+      : (currentStaff ? `${currentStaff.name} さんのサマリーです。` : 'スタッフを選択してください。');
+
+    if (targets.length === 0){
+      grid.innerHTML = `<div class="gh-empty">スタッフを選択してください</div>`;
+      return;
+    }
+
+    grid.innerHTML = targets.map(staff => {
+      const own = recs.filter(r => r.staffId === staff.id);
+      let totalHrs = 0;
+      const shiftCounts = {};
+      own.forEach(r => {
+        const h = netWorkedHours(r);
+        if (h !== null) totalHrs += h;
+        shiftCounts[r.shiftType] = (shiftCounts[r.shiftType]||0) + 1;
+      });
+      const chips = Object.entries(shiftCounts).map(([k,v]) => `<span class="gh-chip">${SHIFT_MAP[k].label} ×${v}</span>`).join('');
+      return `<div class="gh-summary-card">
+        <div class="gh-summary-name">
+          <span class="gh-avatar" style="width:22px;height:22px;font-size:10px;background:${colorForStaff(staff.id)}">${initials(staff.name)}</span>
+          ${staff.name}
+        </div>
+        <div class="gh-summary-hours gh-display">${totalHrs.toFixed(1)}<span style="font-size:13px; font-weight:400; color:var(--ink-soft);"> 時間</span></div>
+        <div class="gh-summary-sub">勤務日数：${own.length}日</div>
+        <div class="gh-summary-shifts">${chips || '<span class="gh-chip">記録なし</span>'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function isSubmitWindowOpen(d = new Date()){
+    const day = d.getDate();
+    return day >= SUBMIT_WINDOW_START && day <= SUBMIT_WINDOW_END;
+  }
+
+  function updateReqStatus(){
+    const now = new Date();
+    const open = isSubmitWindowOpen(now);
+    const el = $('ghReqStatus');
+    el.className = 'gh-req-status ' + (open ? 'open' : 'closed');
+
+    if (open){
+      el.innerHTML = `<span class="dot"></span>提出受付中です（毎月${SUBMIT_WINDOW_START}日〜${SUBMIT_WINDOW_END}日）。${SUBMIT_WINDOW_END}日まで提出・変更できます。`;
+    } else {
+      let next = new Date(now.getFullYear(), now.getMonth(), SUBMIT_WINDOW_START);
+      if (now.getDate() > SUBMIT_WINDOW_END) next = new Date(now.getFullYear(), now.getMonth()+1, SUBMIT_WINDOW_START);
+      el.innerHTML = `<span class="dot"></span>現在は提出期間外です。次回の提出は${next.getMonth()+1}月${SUBMIT_WINDOW_START}日から${SUBMIT_WINDOW_END}日までです。`;
+    }
+
+    const navSub = $('ghReqNavSub');
+    if (navSub) navSub.textContent = open ? '提出受付中です' : `次回の提出は${SUBMIT_WINDOW_START}日から`;
+
+    return open;
+  }
+
+  // ---------------- Shift requests ----------------
+  function daysInMonth(monthStr){
+    const [y, m] = monthStr.split('-').map(Number);
+    return new Date(y, m, 0).getDate();
+  }
+
+  async function toggleShiftRequest(monthInput, dateStr, type){
+    const staff = staffList.find(s => s.id === selectedStaffId);
+    if (!staff) return;
+    const submissions = await loadMonthSubmissions(monthInput);
+    if (submissions[staff.id]) return; // locked after submission
+    const reqs = await loadMonthRequests(monthInput);
+    const idx = reqs.findIndex(r => r.staffId === staff.id && r.date === dateStr);
+    if (idx >= 0){
+      if (reqs[idx].type === type){
+        reqs.splice(idx, 1); // tapping the same type again clears the request
+      } else {
+        reqs[idx].type = type;
+        reqs[idx].submittedAt = new Date().toISOString();
+      }
+    } else {
+      reqs.push({
+        id: 'req-' + Date.now(),
+        staffId: staff.id,
+        staffName: staff.name,
+        date: dateStr,
+        type,
+        note: '',
+        submittedAt: new Date().toISOString(),
+      });
+    }
+    requestsCache[monthInput] = reqs;
+    await saveMonthRequests(monthInput);
+  }
+
+  async function submitShiftRequests(){
+    if (!isSubmitWindowOpen()) return;
+    const staff = staffList.find(s => s.id === selectedStaffId);
+    if (!staff) return;
+    const monthInput = $('ghReqMonth').value;
+    const submissions = await loadMonthSubmissions(monthInput);
+    if (submissions[staff.id]) return; // already submitted
+    submissions[staff.id] = new Date().toISOString();
+    submissionsCache[monthInput] = submissions;
+    await saveMonthSubmissions(monthInput);
+    await renderRequests();
+  }
+
+  async function adminResetSubmission(monthInput, staffId){
+    const submissions = await loadMonthSubmissions(monthInput);
+    delete submissions[staffId];
+    submissionsCache[monthInput] = submissions;
+    await saveMonthSubmissions(monthInput);
+    await renderRequests();
+  }
+
+  function shiftHeaderLabel(key, label){
+    const s = SHIFT_MAP[key];
+    return `${label}（${hoursToTimeStr(s.start)}〜${hoursToTimeStr(s.end % 24 === 0 ? 24 : s.end)}）`;
+  }
+
+  function fmtSubmittedAt(iso){
+    const d = new Date(iso);
+    return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function renderRequests(){
+    const monthInput = $('ghReqMonth').value;
+    if (!monthInput) return;
+    const reqs = await loadMonthRequests(monthInput);
+    const submissions = await loadMonthSubmissions(monthInput);
+    const viewingAll = adminUnlocked && adminViewAll;
+    const windowOpen = isSubmitWindowOpen();
+    const body = $('ghReqBody');
+    const thead = $('ghReqThead');
+
+    const currentStaff = staffList.find(s => s.id === selectedStaffId);
+    const mySubmittedAt = currentStaff ? submissions[currentStaff.id] : null;
+
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+
+    if (viewingAll){
+      $('ghReqWhoHint').textContent = '管理者ビュー：全スタッフの希望状況を表示中です。';
+      $('ghReqSubmitRow').style.display = 'none';
+      $('ghReqSubmissionAdminWrap').style.display = '';
+
+      const subList = $('ghReqSubmissionAdminList');
+      if (staffList.length === 0){
+        subList.innerHTML = `<div class="gh-hint">スタッフが登録されていません</div>`;
+      } else {
+        subList.innerHTML = staffList.map(s => {
+          const sub = submissions[s.id];
+          const tag = sub
+            ? `<span class="gh-req-sub-tag submitted">提出済み（${fmtSubmittedAt(sub)}）</span>`
+            : `<span class="gh-req-sub-tag pending">未提出</span>`;
+          const resetBtn = sub
+            ? `<button class="gh-btn ghost small gh-req-reset-btn" data-staff-id="${s.id}">提出を取り消す</button>`
+            : '';
+          return `<div class="gh-req-sub-row">
+            <span>${s.name}</span>
+            <span style="display:flex; align-items:center; gap:8px;">${tag}${resetBtn}</span>
+          </div>`;
+        }).join('');
+        subList.querySelectorAll('.gh-req-reset-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const staffId = e.target.getAttribute('data-staff-id');
+            await adminResetSubmission(monthInput, staffId);
+          });
+        });
+      }
+
+      thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('day','日勤希望')}</th><th>${shiftHeaderLabel('night','夜勤希望')}</th><th>${shiftHeaderLabel('weekend','早番希望')}</th></tr>`;
+      body.innerHTML = days.map(d => {
+        const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+        const dayNames = reqs.filter(r => r.date === dateStr && r.type === 'day').map(r => r.staffName);
+        const nightNames = reqs.filter(r => r.date === dateStr && r.type === 'night').map(r => r.staffName);
+        const earlyNames = reqs.filter(r => r.date === dateStr && r.type === 'weekend').map(r => r.staffName);
+        const cls = calendarDayClass(dateStr);
+        return `<tr class="${cls}">
+          <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+          <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+          <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+          <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        </tr>`;
+      }).join('');
+      return;
+    }
+
+    $('ghReqSubmissionAdminWrap').style.display = 'none';
+    $('ghReqSubmitRow').style.display = '';
+
+    const locked = !!mySubmittedAt;
+    $('ghReqWhoHint').textContent = currentStaff
+      ? `${currentStaff.name} さんのシフト希望です。日付ごとに希望する区分をタップしてください（土日祝は赤字・青字で表示されます）。`
+      : 'スタッフを選択してください。';
+
+    const submitBtn = $('ghReqSubmitAllBtn');
+    const statusHint = $('ghReqSubmitStatusHint');
+    if (locked){
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提出済み';
+      statusHint.textContent = `${fmtSubmittedAt(mySubmittedAt)} に提出済みです。変更が必要な場合は管理者にご相談ください。`;
+    } else {
+      submitBtn.disabled = !windowOpen;
+      submitBtn.textContent = '提出する';
+      statusHint.textContent = windowOpen ? '選択が終わったら「提出する」を押してください。提出後は変更できません。' : '';
+    }
+
+    const dis = (windowOpen && !locked) ? '' : 'disabled';
+
+    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th><th>${shiftHeaderLabel('weekend','早番')}</th></tr>`;
+    body.innerHTML = days.map(d => {
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      const existing = reqs.find(r => r.staffId === selectedStaffId && r.date === dateStr);
+      const type = existing ? existing.type : null;
+      const cls = calendarDayClass(dateStr);
+      return `<tr data-date="${dateStr}" class="${cls}">
+        <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+        <td><button class="gh-shiftreq-btn${type==='day' ? ' selected day' : ''}" data-type="day" ${dis}>日勤</button></td>
+        <td><button class="gh-shiftreq-btn${type==='night' ? ' selected night' : ''}" data-type="night" ${dis}>夜勤</button></td>
+        <td><button class="gh-shiftreq-btn${type==='weekend' ? ' selected weekend' : ''}" data-type="weekend" ${dis}>早番</button></td>
+      </tr>`;
+    }).join('');
+
+    body.querySelectorAll('.gh-shiftreq-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        if (!isSubmitWindowOpen() || locked) return;
+        const tr = btn.closest('tr');
+        const dateStr = tr.getAttribute('data-date');
+        const type = btn.getAttribute('data-type');
+        await toggleShiftRequest(monthInput, dateStr, type);
+        await renderRequests();
+      });
+    });
+  }
+
+  // ---------------- Shift schedule (manually created plan, falls back to attendance records) ----------------
+  const SEED_SCHEDULE_PLANS = {
+    '2026-08': [
+      {"date":"2026-08-09","shiftType":"weekend","staffName":"廣井"},
+      {"date":"2026-08-09","shiftType":"day","staffName":"安田"},
+      {"date":"2026-08-09","shiftType":"day","staffName":"カシロ"},
+      {"date":"2026-08-09","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-10","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-10","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-11","shiftType":"weekend","staffName":"カシロ"},
+      {"date":"2026-08-11","shiftType":"day","staffName":"募集枠"},
+      {"date":"2026-08-11","shiftType":"night","staffName":"太田"},
+      {"date":"2026-08-12","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-12","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-13","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-13","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-14","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-14","shiftType":"day","staffName":"古田"},
+      {"date":"2026-08-14","shiftType":"night","staffName":"古田"},
+      {"date":"2026-08-15","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-15","shiftType":"night","staffName":"野田"},
+      {"date":"2026-08-16","shiftType":"weekend","staffName":"廣井"},
+      {"date":"2026-08-16","shiftType":"day","staffName":"カシロ"},
+      {"date":"2026-08-16","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-17","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-17","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-18","shiftType":"day","staffName":"カシロ"},
+      {"date":"2026-08-18","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-19","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-19","shiftType":"night","staffName":"野田"},
+      {"date":"2026-08-20","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-20","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-21","shiftType":"day","staffName":"安田"},
+      {"date":"2026-08-21","shiftType":"day","staffName":"古田"},
+      {"date":"2026-08-21","shiftType":"night","staffName":"古田"},
+      {"date":"2026-08-22","shiftType":"weekend","staffName":"樋上"},
+      {"date":"2026-08-22","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-22","shiftType":"night","staffName":"野田"},
+      {"date":"2026-08-23","shiftType":"weekend","staffName":"募集枠"},
+      {"date":"2026-08-23","shiftType":"day","staffName":"カシロ"},
+      {"date":"2026-08-23","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-24","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-24","shiftType":"night","staffName":"太田"},
+      {"date":"2026-08-25","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-25","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-26","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-26","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-27","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-27","shiftType":"night","staffName":"野田"},
+      {"date":"2026-08-28","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-28","shiftType":"day","staffName":"古田"},
+      {"date":"2026-08-28","shiftType":"night","staffName":"古田"},
+      {"date":"2026-08-29","shiftType":"weekend","staffName":"樋上"},
+      {"date":"2026-08-29","shiftType":"day","staffName":"樋上"},
+      {"date":"2026-08-29","shiftType":"night","staffName":"カシロ"},
+      {"date":"2026-08-30","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-30","shiftType":"night","staffName":"野田"},
+      {"date":"2026-08-31","shiftType":"day","staffName":"野田"},
+      {"date":"2026-08-31","shiftType":"night","staffName":"カシロ"}
+    ]
+  };
+
+  let schedulePlanCache = {}; // monthKey -> array (empty array = no manual plan, use attendance records)
+  async function loadMonthSchedulePlan(mKey){
+    if (schedulePlanCache[mKey]) return schedulePlanCache[mKey];
+    const raw = await storageGet(`gh-schedule-plan-${mKey}`, true);
+    if (raw){
+      schedulePlanCache[mKey] = JSON.parse(raw);
+    } else if (SEED_SCHEDULE_PLANS[mKey]){
+      schedulePlanCache[mKey] = SEED_SCHEDULE_PLANS[mKey];
+      await storageSet(`gh-schedule-plan-${mKey}`, JSON.stringify(schedulePlanCache[mKey]), true);
+    } else {
+      schedulePlanCache[mKey] = [];
+    }
+    return schedulePlanCache[mKey];
+  }
+  async function clearMonthSchedulePlan(mKey){
+    schedulePlanCache[mKey] = [];
+    await storageSet(`gh-schedule-plan-${mKey}`, JSON.stringify([]), true);
+  }
+
+  async function renderSchedule(){
+    const monthInput = $('ghScheduleMonth').value;
+    if (!monthInput) return;
+    const plan = await loadMonthSchedulePlan(monthInput);
+    const usingPlan = plan.length > 0;
+    const source = usingPlan ? plan : await loadMonthRecords(monthInput).then(recs => recs.map(r => ({date: r.date, shiftType: r.shiftType, staffName: r.staffName})));
+    const thead = $('ghScheduleThead');
+    const body = $('ghScheduleBody');
+    const hint = $('ghScheduleSourceHint');
+    const clearBtn = $('ghScheduleClearPlanBtn');
+
+    if (hint){
+      hint.textContent = usingPlan
+        ? 'このシフト表は管理者が作成したデータをもとに表示しています。'
+        : 'このシフト表は打刻記録をもとに自動生成しています。';
+    }
+    if (clearBtn) clearBtn.style.display = (adminUnlocked && usingPlan) ? '' : 'none';
+
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+
+    thead.innerHTML = `<tr><th>日付</th><th>${shiftHeaderLabel('weekend','早番')}</th><th>${shiftHeaderLabel('day','日勤')}</th><th>${shiftHeaderLabel('night','夜勤')}</th></tr>`;
+    body.innerHTML = days.map(d => {
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      const dayNames = [...new Set(source.filter(r => r.date === dateStr && r.shiftType === 'day').map(r => r.staffName))];
+      const nightNames = [...new Set(source.filter(r => r.date === dateStr && r.shiftType === 'night').map(r => r.staffName))];
+      const earlyNames = [...new Set(source.filter(r => r.date === dateStr && r.shiftType === 'weekend').map(r => r.staffName))];
+      const cls = calendarDayClass(dateStr);
+      return `<tr class="${cls}">
+        <td>${dateWeekdayLabel(m, d, dateStr)}</td>
+        <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function locToStr(loc){
+    if (!loc) return '';
+    return `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`;
+  }
+
+  function exportCSV(){
+    const monthInput = $('ghSummaryMonth').value;
+    const all = recordsCache[monthInput] || [];
+    const viewingAll = adminUnlocked && adminViewAll;
+    const recs = viewingAll ? all : all.filter(r => r.staffId === selectedStaffId);
+    const rows = [['日付','氏名','区分','出勤','退勤','休憩(分)','実働時間','出勤位置','退勤位置','メモ']];
+    recs.forEach(r => {
+      const h = netWorkedHours(r);
+      const breakMin = Math.round(breakHoursTotal(r) * 60);
+      rows.push([r.date, r.staffName, SHIFT_MAP[r.shiftType].label, r.clockIn, r.clockOut||'', breakMin, h!==null?h.toFixed(1):'', locToStr(r.clockInLoc), locToStr(r.clockOutLoc), r.note||'']);
+    });
+    const csv = '﻿' + rows.map(row => row.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `勤怠記録_${monthInput}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------------- Clock display ----------------
+  function tickClock(){
+    const now = new Date();
+    $('ghClockTime').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    $('ghClockDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${weekdayJP(now)}）`;
+  }
+
+  // ---------------- Page navigation ----------------
+  function showMainView(){
+    $('ghDeviceSetupView').style.display = 'none';
+    $('ghMainView').style.display = '';
+    $('ghReqView').style.display = 'none';
+    $('ghScheduleView').style.display = 'none';
+  }
+  async function showReqView(){
+    $('ghDeviceSetupView').style.display = 'none';
+    $('ghMainView').style.display = 'none';
+    $('ghReqView').style.display = '';
+    $('ghScheduleView').style.display = 'none';
+    updateReqStatus();
+    await renderRequests();
+  }
+  async function showScheduleView(){
+    $('ghDeviceSetupView').style.display = 'none';
+    $('ghMainView').style.display = 'none';
+    $('ghReqView').style.display = 'none';
+    $('ghScheduleView').style.display = '';
+    await renderSchedule();
+  }
+
+  // ---------------- Cross-device sync ----------------
+  // Firestore reads here are one-shot (not live listeners), and several caches
+  // (recordsCache/requestsCache/etc.) are kept in memory per page load so that
+  // local edits can be applied instantly. That means a change made on one
+  // device (e.g. admin renames staff, someone clocks in) would never appear on
+  // other already-open devices without this periodic refresh.
+  function invalidateSharedCaches(){
+    recordsCache = {};
+    requestsCache = {};
+    submissionsCache = {};
+    schedulePlanCache = {};
+  }
+
+  async function refreshCurrentView(){
+    if ($('ghDeviceSetupView').style.display !== 'none') return; // not logged in yet, nothing to refresh
+    if ($('ghMainView').style.display !== 'none'){
+      await refreshStatus();
+      await renderLog();
+      await renderSummary();
+    } else if ($('ghReqView').style.display !== 'none'){
+      updateReqStatus();
+      await renderRequests();
+    } else if ($('ghScheduleView').style.display !== 'none'){
+      await renderSchedule();
+    }
+  }
+
+  async function pollSync(){
+    if (document.hidden) return; // don't burn Firestore reads while the tab is backgrounded/screen off
+    try {
+      await loadStaff();
+      invalidateSharedCaches();
+      await refreshCurrentView();
+    } catch(e){ console.error('sync failed', e); }
+  }
+
+  // ---------------- Init ----------------
+  async function init(){
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
+    $('ghLogMonth').value = monthKey(now);
+    $('ghSummaryMonth').value = monthKey(now);
+    $('ghReqMonth').value = monthKey(nextMonth);
+    $('ghScheduleMonth').value = monthKey(now);
+
+    await loadFacilityName();
+    await loadStaff();
+    await loadPersistedSettings();
+    await loadDeviceStaffId();
+    updateReqStatus();
+    renderShiftTypeSelect();
+    tickClock();
+    setInterval(tickClock, 1000);
+    setInterval(updateReqStatus, 60000);
+    setInterval(pollSync, 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) pollSync(); // refresh immediately when the tab comes back to the foreground
+    });
+
+    if (deviceStaffId && staffList.some(s => s.id === deviceStaffId)){
+      selectedStaffId = deviceStaffId;
+      showMainView();
+    } else {
+      showDeviceSetupView();
+    }
+
+    await refreshStatus();
+    await renderLog();
+    await renderSummary();
+    await renderRequests();
+
+    $('ghFacilityName').addEventListener('change', async (e) => {
+      await storageSet('gh-facility-name', e.target.value, true);
+    });
+
+    $('ghChangeStaffBtn').addEventListener('click', async () => {
+      await clearDeviceStaffId();
+      showDeviceSetupView();
+    });
+
+    $('ghLoginSubmitBtn').addEventListener('click', attemptLogin);
+    $('ghLoginPin').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') attemptLogin();
+    });
+    $('ghLoginEmployeeNumber').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('ghLoginPin').focus();
+    });
+
+    $('ghGotoReqBtn').addEventListener('click', showReqView);
+    $('ghBackToMainBtn').addEventListener('click', showMainView);
+
+    $('ghGotoScheduleBtn').addEventListener('click', showScheduleView);
+    $('ghBackFromScheduleBtn').addEventListener('click', showMainView);
+    $('ghScheduleMonth').addEventListener('change', renderSchedule);
+    $('ghScheduleClearPlanBtn').addEventListener('click', async () => {
+      const monthInput = $('ghScheduleMonth').value;
+      if (!monthInput) return;
+      await clearMonthSchedulePlan(monthInput);
+      await renderSchedule();
+    });
+
+    $('ghReqMonth').addEventListener('change', renderRequests);
+    $('ghReqSubmitAllBtn').addEventListener('click', submitShiftRequests);
+
+    $('ghBtnIn').addEventListener('click', handleClockIn);
+    $('ghBtnOut').addEventListener('click', handleClockOut);
+    $('ghBtnBreakStart').addEventListener('click', handleBreakStart);
+    $('ghBtnBreakEnd').addEventListener('click', handleBreakEnd);
+
+    $('ghLogMonth').addEventListener('change', renderLog);
+    $('ghSummaryMonth').addEventListener('change', renderSummary);
+    $('ghExportBtn').addEventListener('click', async () => {
+      await loadMonthRecords($('ghSummaryMonth').value);
+      exportCSV();
+    });
+
+    // ---- Admin menu wiring ----
+    $('ghAdminOpenBtn').addEventListener('click', async () => {
+      $('ghAdminOverlay').classList.remove('hidden');
+      if (adminUnlocked){
+        showAdminContentScreen();
+        await populateAdminForm();
+      } else {
+        showAdminPinScreen();
+      }
+    });
+    $('ghAdminCloseBtn').addEventListener('click', () => {
+      $('ghAdminOverlay').classList.add('hidden');
+    });
+    $('ghAdminOverlay').addEventListener('click', (e) => {
+      if (e.target.id === 'ghAdminOverlay') $('ghAdminOverlay').classList.add('hidden');
+    });
+
+    async function attemptPinSubmit(){
+      const entered = $('ghAdminPinInput').value.trim();
+      const pin = await getAdminPin();
+      if (entered && entered === pin){
+        adminUnlocked = true;
+        showAdminContentScreen();
+        await populateAdminForm();
+      } else {
+        $('ghAdminPinError').style.display = 'block';
+      }
+    }
+    $('ghAdminPinSubmit').addEventListener('click', attemptPinSubmit);
+    $('ghAdminPinInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') attemptPinSubmit();
+    });
+    $('ghAdminLockBtn').addEventListener('click', async () => {
+      adminUnlocked = false;
+      adminViewAll = false;
+      showAdminPinScreen();
+      await renderLog();
+      await renderRequests();
+      await renderSummary();
+    });
+
+    $('ghAdminAddStaffBtn').addEventListener('click', async () => {
+      const name = $('ghAdminNewStaffName').value.trim();
+      if (!name) return;
+      const employeeNumber = $('ghAdminNewStaffNumber').value.trim();
+      const pin = $('ghAdminNewStaffPin').value.trim();
+      const id = 'staff-' + Date.now();
+      staffList.push({id, name, employeeNumber, pin});
+      await saveStaff();
+      renderAdminStaffList();
+      $('ghAdminNewStaffName').value = '';
+      $('ghAdminNewStaffNumber').value = '';
+      $('ghAdminNewStaffPin').value = '';
+      await refreshStatus();
+      await renderSummary();
+      await renderLog();
+      await renderRequests();
+    });
+
+    $('ghAdminLogMonth').addEventListener('change', renderAdminLogEditor);
+
+    $('ghAdminSaveShiftBtn').addEventListener('click', async () => {
+      const dayStart = timeStrToHours($('ghAdminDayStart').value || '15:00');
+      const dayEnd = timeStrToHours($('ghAdminDayEnd').value || '21:00');
+      const nightStart = timeStrToHours($('ghAdminNightStart').value || '21:00');
+      let nightEnd = timeStrToHours($('ghAdminNightEnd').value || '10:00');
+      if ($('ghAdminNightNextDay').checked) nightEnd += 24;
+      const weekendStart = timeStrToHours($('ghAdminWeekendStart').value || '10:00');
+      const weekendEnd = timeStrToHours($('ghAdminWeekendEnd').value || '15:00');
+
+      SHIFT_MAP.day.start = dayStart;
+      SHIFT_MAP.day.end = dayEnd;
+      SHIFT_MAP.night.start = nightStart;
+      SHIFT_MAP.night.end = nightEnd;
+      SHIFT_MAP.weekend.start = weekendStart;
+      SHIFT_MAP.weekend.end = weekendEnd;
+
+      await storageSet('gh-shift-config', JSON.stringify({
+        day: { start: dayStart, end: dayEnd },
+        night: { start: nightStart, end: nightEnd },
+        weekend: { start: weekendStart, end: weekendEnd },
+      }), true);
+
+      renderShiftTypeSelect();
+      await refreshStatus();
+      await renderRequests();
+    });
+
+    $('ghAdminSaveWindowBtn').addEventListener('click', async () => {
+      const start = Math.min(31, Math.max(1, parseInt($('ghAdminWindowStart').value, 10) || SUBMIT_WINDOW_START));
+      const end = Math.min(31, Math.max(1, parseInt($('ghAdminWindowEnd').value, 10) || SUBMIT_WINDOW_END));
+      SUBMIT_WINDOW_START = start;
+      SUBMIT_WINDOW_END = end;
+      await storageSet('gh-submit-window', JSON.stringify({ start, end }), true);
+      updateReqStatus();
+      await renderRequests();
+    });
+
+    $('ghAdminSavePinBtn').addEventListener('click', async () => {
+      const newPin = $('ghAdminNewPin').value.trim();
+      if (!newPin) return;
+      adminPin = newPin;
+      await storageSet('gh-admin-pin', newPin, true);
+      $('ghAdminNewPin').value = '';
+    });
+
+    $('ghAdminViewAllToggle').addEventListener('change', async (e) => {
+      adminViewAll = e.target.checked;
+      await renderLog();
+      await renderRequests();
+      await renderSummary();
+    });
+
+    $('ghAdminSetLocationBtn').addEventListener('click', async () => {
+      const address = $('ghAdminLocationAddress').value.trim();
+      $('ghAdminLocationError').style.display = 'none';
+      if (!address) return;
+      const btn = $('ghAdminSetLocationBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = '検索中…';
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ja&q=${encodeURIComponent(address)}`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+        if (!data || data.length === 0){
+          $('ghAdminLocationError').style.display = 'block';
+        } else {
+          const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), address };
+          facilityLocation = loc;
+          await storageSet('gh-facility-location', JSON.stringify(loc), true);
+          updateAdminLocationDisplay();
+          await renderLog();
+        }
+      } catch (e){
+        $('ghAdminLocationError').style.display = 'block';
+      }
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    });
+
+    $('ghAdminClearLocationBtn').addEventListener('click', async () => {
+      facilityLocation = null;
+      $('ghAdminLocationAddress').value = '';
+      await storageSet('gh-facility-location', JSON.stringify(null), true);
+      updateAdminLocationDisplay();
+      await renderLog();
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
