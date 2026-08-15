@@ -431,6 +431,10 @@
             <tbody id="ghScheduleBody"></tbody>
           </table>
         </div>
+        <div id="ghScheduleAutoGenWrap" style="display:none; margin-top:14px;">
+          <button class="gh-btn small" id="ghScheduleAutoGenBtn">シフト希望から自動作成</button>
+          <div class="gh-hint" style="margin-top:8px;">希望が1人だけの時間帯はそのまま割り当て、複数人が重なっている時間帯は「⚠要調整」として希望者名を表示、誰も希望していない時間帯は「募集枠」にします（早番の希望を受け付けない日は対象外）。</div>
+        </div>
         <button class="gh-btn ghost small" id="ghScheduleClearPlanBtn" style="margin-top:14px; display:none;">手動作成データをクリア（打刻記録から自動生成に戻す）</button>
       </div>
     </div>
@@ -543,6 +547,15 @@
             <button class="gh-btn primary small" id="ghAdminAddEarlyExceptionBtn">追加</button>
           </div>
           <div id="ghAdminEarlyExceptionList" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="gh-admin-section">
+          <h4>シフト自動作成</h4>
+          <p class="gh-admin-note" style="margin-bottom:8px;">対象月のシフト希望をもとにシフト表を自動作成します。希望が1人だけの時間帯はそのまま割り当て、複数人が重なっている時間帯は「⚠要調整」として希望者名を表示、誰も希望していない時間帯は「募集枠」にします（早番の希望を受け付けない日は対象外）。実行すると、その月の現在のシフト表は上書きされます。</p>
+          <div class="gh-row">
+            <input type="month" id="ghAdminAutoGenMonth" style="max-width:170px;" />
+            <button class="gh-btn primary small" id="ghAdminAutoGenBtn">シフト希望から自動作成</button>
+          </div>
         </div>
 
         <div class="gh-admin-section">
@@ -1059,6 +1072,7 @@ const KV_COLLECTION = 'kv';
     updateAdminLocationDisplay();
     $('ghAdminLocationError').style.display = 'none';
     if (!$('ghAdminLogMonth').value) $('ghAdminLogMonth').value = monthKey(new Date());
+    if (!$('ghAdminAutoGenMonth').value) $('ghAdminAutoGenMonth').value = monthKey(new Date());
     await renderAdminLogEditor();
   }
 
@@ -1735,6 +1749,57 @@ const KV_COLLECTION = 'kv';
     await storageSet(`gh-schedule-plan-${mKey}`, JSON.stringify([]), true);
   }
 
+  // Build a schedule plan for a month from staff shift requests:
+  // - exactly one requester for a (date, shiftType) slot -> assign them
+  // - two or more requesters for the same slot -> leave unassigned but show who overlaps ("⚠要調整")
+  // - no requesters -> mark as an open slot needing re-recruitment ("募集枠")
+  // Early-shift (weekend) slots on days where it isn't allowed are skipped entirely (not applicable).
+  async function autoGenerateSchedule(monthInput){
+    const reqs = await loadMonthRequests(monthInput);
+    await loadEarlyShiftWeekdayExceptions();
+    const [y, m] = monthInput.split('-').map(Number);
+    const numDays = daysInMonth(monthInput);
+    const days = Array.from({length: numDays}, (_, i) => i + 1);
+    const types = ['weekend', 'day', 'night'];
+
+    const newPlan = [];
+    let filledCount = 0, recruitCount = 0, conflictCount = 0;
+    const recruitDetails = [];
+    const conflictDetails = [];
+
+    for (const d of days){
+      const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+      for (const type of types){
+        if (type === 'weekend' && !isEarlyShiftAllowed(dateStr)) continue;
+        const names = [...new Set(reqs.filter(r => r.date === dateStr && r.type === type).map(r => r.staffName))];
+        const label = `${m}/${d}（${SHIFT_MAP[type].label}）`;
+        if (names.length === 1){
+          newPlan.push({ date: dateStr, shiftType: type, staffName: names[0] });
+          filledCount++;
+        } else if (names.length === 0){
+          newPlan.push({ date: dateStr, shiftType: type, staffName: '募集枠' });
+          recruitCount++;
+          recruitDetails.push(label);
+        } else {
+          newPlan.push({ date: dateStr, shiftType: type, staffName: `⚠要調整:${names.join('・')}` });
+          conflictCount++;
+          conflictDetails.push(`${label}: ${names.join('・')}`);
+        }
+      }
+    }
+
+    schedulePlanCache[monthInput] = newPlan;
+    await storageSet(`gh-schedule-plan-${monthInput}`, JSON.stringify(newPlan), true);
+
+    return { filledCount, recruitCount, conflictCount, recruitDetails, conflictDetails };
+  }
+
+  function formatScheduleName(name){
+    if (name === '募集枠') return `<span style="color:#B45309; font-weight:600;">募集枠</span>`;
+    if (typeof name === 'string' && name.startsWith('⚠')) return `<span style="color:#B91C1C; font-weight:600;">${name}</span>`;
+    return name;
+  }
+
   async function renderSchedule(){
     const monthInput = $('ghScheduleMonth').value;
     if (!monthInput) return;
@@ -1745,6 +1810,7 @@ const KV_COLLECTION = 'kv';
     const body = $('ghScheduleBody');
     const hint = $('ghScheduleSourceHint');
     const clearBtn = $('ghScheduleClearPlanBtn');
+    const autoGenWrap = $('ghScheduleAutoGenWrap');
 
     if (hint){
       hint.textContent = usingPlan
@@ -1752,6 +1818,7 @@ const KV_COLLECTION = 'kv';
         : 'このシフト表は打刻記録をもとに自動生成しています。';
     }
     if (clearBtn) clearBtn.style.display = (adminUnlocked && usingPlan) ? '' : 'none';
+    if (autoGenWrap) autoGenWrap.style.display = adminUnlocked ? '' : 'none';
 
     const [y, m] = monthInput.split('-').map(Number);
     const numDays = daysInMonth(monthInput);
@@ -1766,9 +1833,9 @@ const KV_COLLECTION = 'kv';
       const cls = calendarDayClass(dateStr);
       return `<tr class="${cls}">
         <td>${dateWeekdayLabel(m, d, dateStr)}</td>
-        <td class="gh-req-names">${earlyNames.length ? earlyNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-        <td class="gh-req-names">${dayNames.length ? dayNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
-        <td class="gh-req-names">${nightNames.length ? nightNames.join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${earlyNames.length ? earlyNames.map(formatScheduleName).join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${dayNames.length ? dayNames.map(formatScheduleName).join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
+        <td class="gh-req-names">${nightNames.length ? nightNames.map(formatScheduleName).join('、') : '<span style="color:var(--ink-soft)">—</span>'}</td>
       </tr>`;
     }).join('');
   }
@@ -1928,6 +1995,22 @@ const KV_COLLECTION = 'kv';
       await clearMonthSchedulePlan(monthInput);
       await renderSchedule();
     });
+    $('ghScheduleAutoGenBtn').addEventListener('click', async () => {
+      const monthInput = $('ghScheduleMonth').value;
+      if (!monthInput) return;
+      const proceed = window.confirm(`${monthInput} のシフト表を、現在提出されているシフト希望をもとに自動作成します。今のシフト表の内容は上書きされます。よろしいですか？`);
+      if (!proceed) return;
+      const result = await autoGenerateSchedule(monthInput);
+      await renderSchedule();
+      let msg = `自動作成が完了しました。\n\n割り当て済み: ${result.filledCount}件\n募集枠（希望者なし）: ${result.recruitCount}件\n要調整（希望が重複）: ${result.conflictCount}件`;
+      if (result.conflictDetails.length){
+        msg += `\n\n【要調整の内訳】\n${result.conflictDetails.join('\n')}`;
+      }
+      if (result.recruitDetails.length){
+        msg += `\n\n【募集枠の内訳】\n${result.recruitDetails.join('、')}`;
+      }
+      window.alert(msg);
+    });
 
     $('ghReqMonth').addEventListener('change', renderRequests);
     $('ghReqSubmitAllBtn').addEventListener('click', submitShiftRequests);
@@ -1976,6 +2059,23 @@ const KV_COLLECTION = 'kv';
     $('ghAdminPinInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') attemptPinSubmit();
     });
+    $('ghAdminAutoGenBtn').addEventListener('click', async () => {
+      const monthInput = $('ghAdminAutoGenMonth').value;
+      if (!monthInput) return;
+      const proceed = window.confirm(`${monthInput} のシフト表を、現在提出されているシフト希望をもとに自動作成します。今のシフト表の内容は上書きされます。よろしいですか？`);
+      if (!proceed) return;
+      const result = await autoGenerateSchedule(monthInput);
+      if ($('ghScheduleMonth').value === monthInput) await renderSchedule();
+      let msg = `自動作成が完了しました。\n\n割り当て済み: ${result.filledCount}件\n募集枠（希望者なし）: ${result.recruitCount}件\n要調整（希望が重複）: ${result.conflictCount}件`;
+      if (result.conflictDetails.length){
+        msg += `\n\n【要調整の内訳】\n${result.conflictDetails.join('\n')}`;
+      }
+      if (result.recruitDetails.length){
+        msg += `\n\n【募集枠の内訳】\n${result.recruitDetails.join('、')}`;
+      }
+      window.alert(msg);
+    });
+
     $('ghAdminLockBtn').addEventListener('click', async () => {
       adminUnlocked = false;
       adminViewAll = false;
